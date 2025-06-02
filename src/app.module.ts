@@ -6,6 +6,7 @@ import { AppService } from './app.service';
 import { Mongoose } from 'mongoose';
 
 import { UserModule } from './user/user.module';
+import { AccessLogModule } from './access-log/access-log.module';
 
 @Module({
   imports: [
@@ -14,7 +15,8 @@ import { UserModule } from './user/user.module';
       envFilePath: '.env',
     }), 
     MongooseModule.forRoot(process.env.DB_URI as string),
-    UserModule
+    UserModule,
+    AccessLogModule
   ],
   controllers: [AppController],
   providers: [AppService],
