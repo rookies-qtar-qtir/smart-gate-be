@@ -5,60 +5,96 @@ import { UpdateUserDto } from './dto/update-user.dto';
 
 @Injectable()
 export class UsersService {
-    constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) {}
 
-    async create(createUserDto: CreateUserDto) {
-        return await this.prisma.user.create({
-            data: createUserDto,
-        });
+  async create(createUserDto: CreateUserDto) {
+    return await this.prisma.user.create({
+      data: createUserDto,
+    });
+  }
+
+  async findAll() {
+    return await this.prisma.user.findMany({
+      orderBy: {
+        createdAt: 'desc',
+      },
+    });
+  }
+
+  async findOne(id: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id },
+    });
+
+    if (!user) {
+      throw new NotFoundException(`User with ID ${id} not found`);
     }
 
-    async findAll() {
-        return await this.prisma.user.findMany({
-            orderBy: {
-                createdAt: 'desc',
-            },
-        });
+    return user;
+  }
+
+  async findByUid(uid: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { uid },
+    });
+
+    if (!user) {
+      throw new NotFoundException(`User with UID ${uid} not found`);
     }
 
-    async findOne(id: string) {
-        const user = await this.prisma.user.findUnique({
-            where: { id },
-        });
+    return user;
+  }
 
-        if (!user) {
-            throw new NotFoundException(`User with ID ${id} not found`);
-        }
+  async update(id: string, updateUserDto: UpdateUserDto) {
+    const user = await this.findOne(id);
 
-        return user;
+    return await this.prisma.user.update({
+      where: { id },
+      data: updateUserDto,
+    });
+  }
+
+  async remove(id: string) {
+    const user = await this.findOne(id);
+
+    return await this.prisma.user.delete({
+      where: { id },
+    });
+  }
+
+  async findOneWithAccessLogs(id: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id },
+      include: {
+        accessLogs: {
+          orderBy: { timestamp: 'desc' },
+          take: 10,
+        },
+      },
+    });
+
+    if (!user) {
+      throw new NotFoundException(`User with ID ${id} not found`);
     }
 
-    async findByUid(uid: string) {
-        const user = await this.prisma.user.findUnique({
-            where: { uid },
-        });
+    return user;
+  }
 
-        if (!user) {
-            throw new NotFoundException(`User with UID ${uid} not found`);
-        }
+  async findByUidWithAccessLogs(uid: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { uid },
+      include: {
+        accessLogs: {
+          orderBy: { timestamp: 'desc' },
+          take: 10,
+        },
+      },
+    });
 
-        return user;
+    if (!user) {
+      throw new NotFoundException(`User with UID ${uid} not found`);
     }
 
-    async update(id: string, updateUserDto: UpdateUserDto) {
-        const user = await this.findOne(id);
-
-        return await this.prisma.user.update({
-            where: { id },
-            data: updateUserDto,
-        });
-    }
-
-    async remove(id: string) {
-        const user = await this.findOne(id);
-
-        return await this.prisma.user.delete({
-            where: { id },
-        });
-    }
+    return user;
+  }
 }
