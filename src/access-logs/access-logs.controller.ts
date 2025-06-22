@@ -6,7 +6,10 @@ import {
   Param,
   HttpStatus,
   Query,
+  UseInterceptors,
+  UploadedFile,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { AccessLogsService } from './access-logs.service';
 import { ProcessAccessDto } from './dto/process-access.dto';
 
@@ -15,9 +18,15 @@ export class AccessLogsController {
   constructor(private readonly accessLogsService: AccessLogsService) {}
 
   @Post('process')
-  async processAccess(@Body() processAccessDto: ProcessAccessDto) {
-    const result =
-      await this.accessLogsService.processRFIDAccess(processAccessDto);
+  @UseInterceptors(FileInterceptor('image'))
+  async processAccess(
+    @Body() processAccessDto: ProcessAccessDto,
+    @UploadedFile() file?: Express.Multer.File,
+  ) {
+    const result = await this.accessLogsService.processRFIDAccess(
+      processAccessDto,
+      file?.buffer,
+    );
 
     return {
       statusCode: result.access ? HttpStatus.OK : HttpStatus.FORBIDDEN,
@@ -25,10 +34,12 @@ export class AccessLogsController {
       data: {
         access: result.access,
         user: result.user,
+        detectedVehicle: result.detectedVehicle,
         accessLog: result.accessLog,
       },
     };
   }
+
 
   @Get()
   async findAll() {

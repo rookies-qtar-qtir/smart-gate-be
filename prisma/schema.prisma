@@ -32,6 +32,7 @@ model AccessLog {
   user      User?    @relation(fields: [userId], references: [id])
   status    AccessStatus
   reason    String?
+  vehicle  VehicleType?
   timestamp DateTime @default(now())
 
   @@map("access_logs")
@@ -40,4 +41,10 @@ model AccessLog {
 enum AccessStatus {
   GRANTED
   DENIED
+}
+
+enum VehicleType {
+  BIKE
+  CAR
+  NO_VEHICLE
 }
