@@ -6,6 +6,7 @@ import { VehicleType } from '@prisma/client';
 export class TfjsService implements OnModuleInit {
   private model: tf.LayersModel;
   private readonly logger = new Logger(TfjsService.name);
+  private readonly confidenceThreshold = 0.9;
 
   private readonly classMap: { [key: number]: VehicleType } = {
     0: VehicleType.BIKE,
@@ -35,12 +36,17 @@ export class TfjsService implements OnModuleInit {
       const predictions = this.model.predict(imageTensor) as tf.Tensor;
       const predictionData = await predictions.data();
 
-      const predictedClassIndex = predictionData.indexOf(
-        Math.max(...Array.from(predictionData)),
-      );
+      const scores = Array.from(predictionData);
+      const maxScore = Math.max(...scores);
+      const predictedClassIndex = scores.indexOf(maxScore);
 
       imageTensor.dispose();
       predictions.dispose();
+
+      if (maxScore < this.confidenceThreshold) {
+        this.logger.warn(`Low confidence prediction: ${(maxScore * 100).toFixed(2)}%, returning NO_VEHICLE`);
+        return VehicleType.NO_VEHICLE;
+      }
 
       return this.classMap[predictedClassIndex] || VehicleType.NO_VEHICLE;
     } catch (error) {
@@ -61,50 +67,4 @@ export class TfjsService implements OnModuleInit {
 
     return batchedImage;
   }
-
-//   async classifyVehicleWithConfidence(imageBuffer: Buffer): Promise<{
-//     prediction: VehicleType;
-//     confidence: number;
-//     allScores: { [key in VehicleType]: number };
-//   }> {
-//     try {
-//       const imageTensor = this.preprocessImage(imageBuffer);
-//       const predictions = this.model.predict(imageTensor) as tf.Tensor;
-//       const predictionData = await predictions.data();
-
-//       const scores = Array.from(predictionData);
-//       const maxScore = Math.max(...scores);
-//       const predictedClassIndex = scores.indexOf(maxScore);
-
-//       const allScores = {
-//         [VehicleType.BIKE]: scores[0],
-//         [VehicleType.CAR]: scores[1],
-//         [VehicleType.NO_VEHICLE]: scores[2],
-//       };
-
-//       imageTensor.dispose();
-//       predictions.dispose();
-
-//       return {
-//         prediction:
-//           this.classMap[predictedClassIndex] || VehicleType.NO_VEHICLE,
-//         confidence: maxScore,
-//         allScores,
-//       };
-//     } catch (error) {
-//       this.logger.error(
-//         'Vehicle classification with confidence failed:',
-//         error,
-//       );
-//       return {
-//         prediction: VehicleType.NO_VEHICLE,
-//         confidence: 0,
-//         allScores: {
-//           [VehicleType.BIKE]: 0,
-//           [VehicleType.CAR]: 0,
-//           [VehicleType.NO_VEHICLE]: 1,
-//         },
-//       };
-//     }
-//   }
 }
