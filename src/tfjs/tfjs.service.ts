@@ -6,7 +6,7 @@ import { VehicleType } from '@prisma/client';
 export class TfjsService implements OnModuleInit {
   private model: tf.LayersModel;
   private readonly logger = new Logger(TfjsService.name);
-  private readonly confidenceThreshold = 0.9;
+  private readonly confidenceThreshold = 0.85;
 
   private readonly classMap: { [key: number]: VehicleType } = {
     0: VehicleType.BIKE,

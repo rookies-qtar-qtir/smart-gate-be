@@ -20,6 +20,8 @@ model User {
   email     String   @unique
   name      String
   isActive  Boolean  @default(true)
+  password  String?
+  role      Role     @default(USER)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   accessLogs AccessLog[]
@@ -47,4 +49,9 @@ enum VehicleType {
   BIKE
   CAR
   NO_VEHICLE
+}
+
+enum Role {
+  ADMIN
+  USER
 }
