@@ -9,6 +9,8 @@ import { AccessLogsModule } from './access-logs/access-logs.module';
 import { TfjsModule } from './tfjs/tfjs.module';
 import { AuthModule } from './auth/auth.module';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
+import { OnnxModule } from './onnx/onnx.module';
+import { OcrModule } from './ocr/ocr.module';
 
 @Module({
   imports: [
@@ -18,7 +20,9 @@ import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
     UsersModule,
     AccessLogsModule,
     TfjsModule,
-    AuthModule
+    AuthModule,
+    OnnxModule,
+    OcrModule
   ],
   controllers: [AppController],
   providers: [

@@ -82,11 +82,9 @@ export class AuthService {
             throw new ConflictException('UID already exists');
         }
 
-        // Hash password
         const saltRounds = 10;
         const hashedPassword = await bcrypt.hash(password, saltRounds);
 
-        // Buat user admin baru
         const user = await this.prisma.user.create({
             data: {
                 uid,
@@ -98,7 +96,6 @@ export class AuthService {
             },
         });
 
-        // Generate JWT token
         const payload: JwtPayload = {
             sub: user.id,
             email: user.email,

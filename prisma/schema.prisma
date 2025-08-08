@@ -21,7 +21,8 @@ model User {
   name      String
   isActive  Boolean  @default(true)
   password  String?
-  role      Role     @default(USER)
+  role      Role     @default(PENGHUNI)
+  plateNumber String[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   accessLogs AccessLog[]
@@ -35,6 +36,7 @@ model AccessLog {
   status    AccessStatus
   reason    String?
   vehicle  VehicleType?
+  plateNumber String?
   timestamp DateTime @default(now())
 
   @@map("access_logs")
@@ -53,5 +55,5 @@ enum VehicleType {
 
 enum Role {
   ADMIN
-  USER
+  PENGHUNI
 }

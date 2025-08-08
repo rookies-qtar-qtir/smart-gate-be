@@ -1,4 +1,4 @@
-import { IsBoolean, isBoolean, IsEmail, IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import { IsBoolean, isBoolean, IsEmail, IsNotEmpty, IsOptional, IsString, IsArray } from 'class-validator';
 
 export class CreateUserDto {
   @IsString()
@@ -16,4 +16,9 @@ export class CreateUserDto {
   @IsBoolean()
   @IsOptional()
   isActive?: boolean;
+
+  @IsArray()
+  @IsString({ each: true })
+  @IsOptional()
+  plateNumber?: string[];
 }
