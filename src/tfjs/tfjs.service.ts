@@ -25,7 +25,8 @@ export class TfjsService implements OnModuleInit {
   private readonly classMap: { [key: number]: VehicleType } = {
     0: VehicleType.BIKE,
     1: VehicleType.CAR,
-    2: VehicleType.NO_VEHICLE,
+    2: VehicleType.MOTORBIKE,
+    3: VehicleType.NO_VEHICLE,
   };
 
   async onModuleInit() {
@@ -34,7 +35,7 @@ export class TfjsService implements OnModuleInit {
 
   private async loadModels() {
     try {
-      this.vehicleModel = await tf.loadLayersModel('file://./models/model_tfjs/model.json');
+      this.vehicleModel = await tf.loadLayersModel('file://./models/classification/best_web_model/model.json');
       this.logger.log('Vehicle classification model loaded successfully');
 
       this.plateModel = await tf.loadGraphModel('file://./models/best_web_model/model.json');
@@ -47,7 +48,7 @@ export class TfjsService implements OnModuleInit {
 
   async classifyVehicle(imageBuffer: Buffer): Promise<VehicleType> {
     try {
-      const imageTensor = this.preprocessImageForClassification(imageBuffer);
+      const imageTensor = this.preprocessImage(imageBuffer, [224, 224]);
       const predictions = this.vehicleModel.predict(imageTensor) as tf.Tensor;
       const predictionData = await predictions.data();
       const scores = Array.from(predictionData);
@@ -73,7 +74,7 @@ export class TfjsService implements OnModuleInit {
     const originalImage = tf.node.decodeImage(imageBuffer, 3);
     const imageWidth = originalImage.shape[1];
     const imageHeight = originalImage.shape[0];
-    const imageTensor = this.preprocessImageForDetection(originalImage as tf.Tensor3D);
+    const imageTensor = this.preprocessImage(originalImage as tf.Tensor3D, [640, 640]);
 
     try {
       const predictions = this.plateModel.predict(imageTensor) as tf.Tensor;
@@ -98,9 +99,9 @@ export class TfjsService implements OnModuleInit {
     }
   }
 
-  private preprocessImageForDetection(image: Buffer | tf.Tensor3D): tf.Tensor4D {
+  private preprocessImage(image: Buffer | tf.Tensor3D, size: [number, number]): tf.Tensor4D {
     const imageTensor = image instanceof Buffer ? tf.node.decodeImage(image, 3) : image;
-    const resizedImage = tf.image.resizeBilinear(imageTensor, [640, 640]);
+    const resizedImage = tf.image.resizeBilinear(imageTensor, size);
     const normalizedImage = resizedImage.div(tf.scalar(255.0));
     const batchedImage = normalizedImage.expandDims(0);
 
@@ -112,15 +113,6 @@ export class TfjsService implements OnModuleInit {
     return batchedImage as tf.Tensor4D;
   }
 
-  private preprocessImageForClassification(imageBuffer: Buffer): tf.Tensor {
-    const imageTensor = tf.node.decodeImage(imageBuffer, 3);
-    const resizedImage = tf.image.resizeBilinear(imageTensor, [224, 224]);
-    const normalizedImage = resizedImage.div(tf.scalar(255.0));
-    const batchedImage = normalizedImage.expandDims(0);
-
-    tf.dispose([imageTensor, resizedImage, normalizedImage]);
-    return batchedImage;
-  }
 
   private async processYoloOutput(outputTensor: tf.Tensor, imageWidth: number, imageHeight: number): Promise<PlateDetection[]> {
     const transposed = outputTensor.squeeze([0]).transpose();

@@ -9,9 +9,10 @@ import {
   UseInterceptors,
   UploadedFile,
   BadRequestException,
+  HttpException,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { AccessLogsService } from './access-logs.service';
+import { AccessLogsService, ProcessAccessResult, WarpTestResult } from './access-logs.service';
 import { ProcessAccessDto } from './dto/process-access.dto';
 import { Public } from '../auth/decorators/public.decorator';
 import { AdminOnly } from '../auth/decorators/admin-only.decorator';
@@ -20,9 +21,9 @@ import { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
 
 @Controller('access-logs')
 export class AccessLogsController {
-  private processingRequests = new Map<string, Promise<any>>();
+  private processingRequests = new Map<string, Promise<ProcessAccessResult>>();
 
-  constructor(private readonly accessLogsService: AccessLogsService) { }
+  constructor(private readonly accessLogsService: AccessLogsService) {}
 
   @Public()
   @Post('process')
@@ -34,88 +35,23 @@ export class AccessLogsController {
     const { uid } = processAccessDto;
 
     if (this.processingRequests.has(uid)) {
-      const existingPromise = this.processingRequests.get(uid);
-      const result = await existingPromise;
-
-      return {
-        statusCode: result.access ? HttpStatus.OK : HttpStatus.FORBIDDEN,
-        message: `${result.message} (duplicate request handled)`,
-        data: {
-          access: result.access,
-          user: result.user,
-          detectedVehicle: result.detectedVehicle,
-          detectedPlateNumber: result.detectedPlateNumber,
-          accessLog: result.accessLog,
-        },
-      };
+      const result = await this.processingRequests.get(uid)!;
+      return this.formatAccessResponse(result, true);
     }
 
-    const processingPromise = this.handleProcessAccess(processAccessDto, file?.buffer);
+    const processingPromise = this.accessLogsService.processRFIDAccess(
+      processAccessDto,
+      file?.buffer,
+    );
 
     this.processingRequests.set(uid, processingPromise);
 
     try {
       const result = await processingPromise;
-
-      return {
-        statusCode: result.access ? HttpStatus.OK : HttpStatus.FORBIDDEN,
-        message: result.message,
-        data: {
-          access: result.access,
-          user: result.user,
-          detectedVehicle: result.detectedVehicle,
-          detectedPlateNumber: result.detectedPlateNumber,
-          accessLog: result.accessLog,
-        },
-      };
+      return this.formatAccessResponse(result);
     } finally {
       this.processingRequests.delete(uid);
     }
-  }
-
-  @Public()
-  @Post('detection')
-  @UseInterceptors(FileInterceptor('image'))
-  async detectPlate(@UploadedFile() file: Express.Multer.File) {
-    if (!file) {
-      throw new BadRequestException('Image file is required');
-    }
-
-    try {
-      const result = await this.accessLogsService.detectPlateInImage(file.buffer);
-
-      return {
-        statusCode: HttpStatus.OK,
-        message: result.detected ? 'Plate detected successfully' : 'No plate detected',
-        data: {
-          detected: result.detected,
-          plateDetection: result.plateDetection,
-          vehicleType: result.vehicleType,
-          croppedPlateImage: result.croppedPlateImage,
-          ocrText: (result as any).ocrText || null,
-        },
-      };
-    } catch (error) {
-      return {
-        statusCode: HttpStatus.INTERNAL_SERVER_ERROR,
-        message: 'Detection failed',
-        data: {
-          detected: false,
-          error: error.message,
-        },
-      };
-    }
-  }
-
-
-  private async handleProcessAccess(
-    processAccessDto: ProcessAccessDto,
-    fileBuffer?: Buffer,
-  ) {
-    return await this.accessLogsService.processRFIDAccess(
-      processAccessDto,
-      fileBuffer,
-    );
   }
 
   @AdminOnly()
@@ -124,7 +60,7 @@ export class AccessLogsController {
     const accessLogs = await this.accessLogsService.findAll();
     return {
       statusCode: HttpStatus.OK,
-      message: 'Access logs retrieved successfully',
+      message: 'Access logs retrieved',
       data: accessLogs,
       accessedBy: admin.email,
     };
@@ -136,7 +72,7 @@ export class AccessLogsController {
     const accessLogs = await this.accessLogsService.findByUid(uid);
     return {
       statusCode: HttpStatus.OK,
-      message: 'Access logs by UID retrieved successfully',
+      message: 'Access logs by UID retrieved',
       data: accessLogs,
       accessedBy: admin.email,
     };
@@ -156,7 +92,7 @@ export class AccessLogsController {
     const accessLogs = await this.accessLogsService.findByDateRange(start, end);
     return {
       statusCode: HttpStatus.OK,
-      message: 'Access logs by date range retrieved successfully',
+      message: 'Access logs by date range retrieved',
       data: accessLogs,
       accessedBy: admin.email,
     };
@@ -168,7 +104,7 @@ export class AccessLogsController {
     const accessLogs = await this.accessLogsService.findGrantedAccess();
     return {
       statusCode: HttpStatus.OK,
-      message: 'Granted access logs retrieved successfully',
+      message: 'Granted access logs retrieved',
       data: accessLogs,
       accessedBy: admin.email,
     };
@@ -180,9 +116,93 @@ export class AccessLogsController {
     const accessLogs = await this.accessLogsService.findDeniedAccess();
     return {
       statusCode: HttpStatus.OK,
-      message: 'Denied access logs retrieved successfully',
+      message: 'Denied access logs retrieved',
       data: accessLogs,
       accessedBy: admin.email,
+    };
+  }
+
+  // @Public()
+  // @Post('test-classification')
+  // @UseInterceptors(FileInterceptor('image'))
+  // async testClassification(@UploadedFile() file: Express.Multer.File) {
+  //   if (!file) {
+  //     throw new BadRequestException('Image file is required');
+  //   }
+
+  //   try {
+  //     const result = await this.accessLogsService.testClassifyVehicle(file.buffer);
+  //     return {
+  //       statusCode: HttpStatus.OK,
+  //       success: true,
+  //       message: 'Vehicle classification completed',
+  //       data: result,
+  //     };
+  //   } catch (error) {
+  //     throw new HttpException(
+  //       {
+  //         success: false,
+  //         message: 'Classification failed',
+  //         error: (error as Error).message,
+  //       },
+  //       HttpStatus.INTERNAL_SERVER_ERROR,
+  //     );
+  //   }
+  // }
+
+  // @Public()
+  // @Post('test-warp')
+  // @UseInterceptors(FileInterceptor('image'))
+  // async testWarp(@UploadedFile() file: Express.Multer.File) {
+  //   if (!file) {
+  //     throw new BadRequestException('Image file is required');
+  //   }
+
+  //   try {
+  //     const result: WarpTestResult = await this.accessLogsService.testWarpPerspective(
+  //       file.buffer,
+  //     );
+
+  //     return {
+  //       statusCode: result.success ? HttpStatus.OK : HttpStatus.BAD_REQUEST,
+  //       success: result.success,
+  //       message: result.success
+  //         ? 'Warp perspective test completed'
+  //         : result.error ?? 'Warp perspective test failed',
+  //       data: {
+  //         image: result.image ?? null,
+  //         ocrText: result.ocrText ?? null,
+  //         error: result.error ?? null,
+  //       },
+  //     };
+  //   } catch (error) {
+  //     throw new HttpException(
+  //       {
+  //         success: false,
+  //         message: 'Test warp failed',
+  //         error: (error as Error).message,
+  //       },
+  //       HttpStatus.INTERNAL_SERVER_ERROR,
+  //     );
+  //   }
+  // }
+
+  // helpers
+
+  private formatAccessResponse(
+    result: ProcessAccessResult,
+    isDuplicate = false,
+  ) {
+    return {
+      statusCode: result.access ? HttpStatus.OK : HttpStatus.FORBIDDEN,
+      message: isDuplicate ? `${result.message} (duplicate request)` : result.message,
+      data: {
+        access: result.access,
+        user: result.user,
+        detectedVehicle: result.detectedVehicle,
+        detectedPlateNumber: result.detectedPlateNumber,
+        accessLog: result.accessLog,
+      },
     };
   }
 }

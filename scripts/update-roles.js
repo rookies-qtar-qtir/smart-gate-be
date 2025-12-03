@@ -3,7 +3,6 @@ const prisma = new PrismaClient();
 
 async function updateRoles() {
   try {
-    // Update semua user dengan role 'USER' menjadi 'PENGHUNI'
     const result = await prisma.$runCommandRaw({
       update: "User",
       updates: [

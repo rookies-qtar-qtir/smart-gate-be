@@ -1,121 +1,86 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { TfjsService } from 'src/tfjs/tfjs.service';
 import { OcrService } from 'src/ocr/ocr.service';
+import { ClassificationService } from 'src/classification/classification.service';
+import { DetectionPlateService } from 'src/detection-plate/detection-plate.service';
 import { AccessStatus, VehicleType } from '@prisma/client';
 import { ProcessAccessDto } from './dto/process-access.dto';
 
-interface PlateDetectionResult {
-  detected: boolean;
-  plateDetection?: {
-    bbox: {
-      x: number;
-      y: number;
-      width: number;
-      height: number;
-    };
-    confidence: number;
-    class: string;
-  };
-  vehicleType?: VehicleType;
-  croppedPlateImage?: string;
-  ocrText?: string;
-  error?: string;
+export interface ProcessAccessResult {
+  access: boolean;
+  message: string;
+  user: string | null;
+  detectedVehicle: VehicleType | null;
+  detectedPlateNumber: string | null;
+  accessLog: any;
+}
+
+export interface WarpTestResult {
+  success: boolean;
+  image: string | null;
+  ocrText: string | null;
+  error: string | null;
 }
 
 @Injectable()
 export class AccessLogsService {
   constructor(
     private prisma: PrismaService,
-    private tfjsService: TfjsService,
+    private classificationService: ClassificationService,
     private ocrService: OcrService,
-  ) { }
+    private detectionPlateService: DetectionPlateService,
+  ) {}
 
-  async processRFIDAccess(processAccessDto: ProcessAccessDto, imageBuffer?: Buffer) {
+  async processRFIDAccess(
+    processAccessDto: ProcessAccessDto,
+    imageBuffer?: Buffer,
+  ): Promise<ProcessAccessResult> {
     const { uid } = processAccessDto;
     let detectedVehicle: VehicleType | null = null;
-    let vehicleDetectionError: string | null = null;
     let detectedPlateNumber: string | null = null;
 
     try {
       if (imageBuffer) {
-        try {
-          const vehicleType = await this.tfjsService.classifyVehicle(imageBuffer);
-          detectedVehicle = vehicleType;
+        detectedVehicle = await this.classificationService.classifyVehicle(imageBuffer);
 
-          if (vehicleType === VehicleType.CAR || vehicleType === VehicleType.BIKE) {
-            try {
-              const plateDetection = await this.tfjsService.detectPlate(imageBuffer);
+        if (
+          detectedVehicle === VehicleType.CAR ||
+          detectedVehicle === VehicleType.MOTORBIKE
+        ) {
+          const segResult = await this.detectionPlateService.cropPlateBySegmentation(
+            imageBuffer,
+          );
 
-              if (plateDetection) {
-                try {
-                  const ocrResult = await this.ocrService.cropAndRunOCR(imageBuffer, plateDetection.bbox);
-                  detectedPlateNumber = ocrResult.ocrText || null;
-                } catch (ocrError) {
-                  console.error('OCR failed:', ocrError);
-                }
-              }
-            } catch (plateError) {
-              console.error('Plate detection failed:', plateError);
+          if (segResult?.quad) {
+            const warpOcrResult = await this.ocrService.warpAndOcr(
+              segResult.buffer,
+              segResult.quad,
+            );
+
+            if (warpOcrResult?.ocrText) {
+              detectedPlateNumber = warpOcrResult.ocrText;
             }
           }
-        } catch (imageError) {
-          console.error('Vehicle classification failed:', imageError);
-          detectedVehicle = null;
-          vehicleDetectionError = 'Gagal mendeteksi kendaraan';
         }
       }
 
-      const user = await this.prisma.user.findUnique({
-        where: { uid },
-      });
-
-      let accessStatus: AccessStatus;
-      let reason: string | null = null;
-      let userId: string | null = null;
-
-      if (!user) {
-        accessStatus = AccessStatus.DENIED;
-        reason = 'UID tidak terdaftar';
-      } else if (!user.isActive) {
-        accessStatus = AccessStatus.DENIED;
-        reason = 'User tidak aktif';
-        userId = user.id;
-      } else {
-        if (detectedVehicle === VehicleType.NO_VEHICLE || !detectedVehicle) {
-          accessStatus = AccessStatus.GRANTED;
-          userId = user.id;
-        } else if (detectedVehicle === VehicleType.CAR || detectedVehicle === VehicleType.BIKE) {
-          if (!detectedPlateNumber) {
-            accessStatus = AccessStatus.DENIED;
-            reason = 'Nomor plat tidak terdeteksi';
-            userId = user.id;
-          } else if (!user.plateNumber.includes(detectedPlateNumber)) {
-            accessStatus = AccessStatus.DENIED;
-            reason = 'Nomor plat tidak terdaftar untuk user ini';
-            userId = user.id;
-          } else {
-            accessStatus = AccessStatus.GRANTED;
-            userId = user.id;
-          }
-        } else {
-          accessStatus = AccessStatus.GRANTED;
-          userId = user.id;
-        }
-      }
+      const user = await this.prisma.user.findUnique({ where: { uid } });
+      const { accessStatus, reason, userId } = this.determineAccessStatus(
+        user,
+        detectedVehicle ?? undefined,
+        detectedPlateNumber ?? undefined,
+      );
 
       const accessLog = await this.prisma.accessLog.create({
         data: {
           uid,
-          userId,
           status: accessStatus,
+          userId,
           reason,
-          vehicle: detectedVehicle,
-          plateNumber: detectedPlateNumber,
+          vehicle: detectedVehicle ?? undefined,
+          plateNumber: detectedPlateNumber ?? undefined,
         },
-        include: {
-          user: true,
-        },
+        include: { user: true },
       });
 
       return {
@@ -123,107 +88,42 @@ export class AccessLogsService {
         message:
           accessStatus === AccessStatus.GRANTED
             ? `Akses diberikan untuk ${user?.name}`
-            : reason,
-        user: user?.name || null,
-        detectedVehicle,
-        detectedPlateNumber,
-        vehicleDetectionError,
+            : reason || 'Akses ditolak',
+        user: user?.name ?? null,
+        detectedVehicle: detectedVehicle ?? null,
+        detectedPlateNumber: detectedPlateNumber ?? null,
         accessLog,
       };
     } catch (error) {
-      const errorLog = await this.prisma.accessLog.create({
-        data: {
-          uid,
-          status: AccessStatus.DENIED,
-          reason: 'System error',
-          vehicle: detectedVehicle,
-          plateNumber: detectedPlateNumber,
-        },
-      });
-
-      return {
-        access: false,
-        message: 'System error',
-        user: null,
-        detectedVehicle,
-        detectedPlateNumber,
-        vehicleDetectionError,
-        accessLog: errorLog,
-      };
-    }
-  }
-
-  async detectPlateInImage(imageBuffer: Buffer): Promise<PlateDetectionResult> {
-    try {
-      const plateDetection = await this.tfjsService.detectPlate(imageBuffer);
-
-      if (!plateDetection) return { detected: false };
-
-      let croppedPlateImage: string | undefined;
-      let ocrText: string | undefined;
-
-      try {
-        const ocrResult = await this.ocrService.cropAndRunOCR(imageBuffer, plateDetection.bbox);
-        croppedPlateImage = ocrResult.croppedImage;
-        ocrText = ocrResult.ocrText || undefined;
-      } catch (cropError) {
-        console.error('Failed to crop plate image and run OCR:', cropError);
-      }
-
-      let vehicleType: VehicleType | undefined;
-      try {
-        vehicleType = await this.tfjsService.classifyVehicle(imageBuffer);
-      } catch (vehicleError) {
-        console.error('Vehicle classification failed during detection:', vehicleError);
-      }
-
-      return {
-        detected: true,
-        plateDetection,
-        vehicleType,
-        croppedPlateImage,
-        ...(ocrText ? { ocrText } : {}),
-      };
-
-    } catch (error) {
-      console.error('Plate detection failed:', error);
-      return {
-        detected: false,
-        error: error.message,
-      };
+      return this.handleAccessError(uid, detectedVehicle, detectedPlateNumber);
     }
   }
 
   async findAll() {
-    return await this.prisma.accessLog.findMany({
+    return this.prisma.accessLog.findMany({
       include: { user: true },
       orderBy: { timestamp: 'desc' },
     });
   }
 
   async findByUid(uid: string) {
-    return await this.prisma.accessLog.findMany({
+    return this.prisma.accessLog.findMany({
       where: { uid },
       include: { user: true },
       orderBy: { timestamp: 'desc' },
     });
   }
 
-  async findByDateRange(startDate: Date, endDate: Date,) {
-    return await this.prisma.accessLog.findMany({
-      where: {
-        timestamp: {
-          gte: startDate,
-          lte: endDate,
-        },
-      },
+  async findByDateRange(startDate: Date, endDate: Date) {
+    return this.prisma.accessLog.findMany({
+      where: { timestamp: { gte: startDate, lte: endDate } },
       include: { user: true },
       orderBy: { timestamp: 'desc' },
     });
   }
 
   async findGrantedAccess() {
-    return await this.prisma.accessLog.findMany({
+    return this.prisma.accessLog.findMany({
       where: { status: AccessStatus.GRANTED },
       include: { user: true },
       orderBy: { timestamp: 'desc' },
@@ -231,10 +131,130 @@ export class AccessLogsService {
   }
 
   async findDeniedAccess() {
-    return await this.prisma.accessLog.findMany({
+    return this.prisma.accessLog.findMany({
       where: { status: AccessStatus.DENIED },
       include: { user: true },
       orderBy: { timestamp: 'desc' },
     });
+  }
+
+  // async testClassifyVehicle(
+  //   imageBuffer: Buffer,
+  // ): Promise<{ vehicleType: VehicleType }> {
+  //   const vehicleType = await this.classificationService.classifyVehicle(imageBuffer);
+  //   return { vehicleType };
+  // }
+
+  // async testWarpPerspective(imageBuffer: Buffer): Promise<WarpTestResult> {
+  //   const segResult = await this.detectionPlateService.cropPlateBySegmentation(
+  //     imageBuffer,
+  //   );
+
+  //   if (!segResult) {
+  //     return {
+  //       success: false,
+  //       image: null,
+  //       ocrText: null,
+  //       error: 'No plate detected',
+  //     };
+  //   }
+
+  //   const { buffer: detectedPlatePng, quad } = segResult;
+  //   let finalImageBase64 = `data:image/png;base64,${detectedPlatePng.toString(
+  //     'base64',
+  //   )}`;
+  //   let ocrText: string | null = null;
+
+  //   if (quad && quad.length === 4) {
+  //     const warpOcrResult = await this.ocrService.warpAndOcr(detectedPlatePng, quad);
+
+  //     if (warpOcrResult) {
+  //       finalImageBase64 = warpOcrResult.warpedPlate;
+  //       ocrText = warpOcrResult.ocrText;
+  //     }
+  //   }
+
+  //   return {
+  //     success: true,
+  //     image: finalImageBase64,
+  //     ocrText,
+  //     error: null,
+  //   };
+  // }
+
+  // helpers
+
+  private determineAccessStatus(
+    user: any,
+    detectedVehicle?: VehicleType,
+    detectedPlateNumber?: string,
+  ): { accessStatus: AccessStatus; reason?: string; userId?: string } {
+    if (!user) {
+      return { accessStatus: AccessStatus.DENIED, reason: 'UID tidak terdaftar' };
+    }
+
+    if (!user.isActive) {
+      return {
+        accessStatus: AccessStatus.DENIED,
+        reason: 'User tidak aktif',
+        userId: user.id,
+      };
+    }
+
+    if (
+      !detectedVehicle ||
+      detectedVehicle === VehicleType.NO_VEHICLE ||
+      detectedVehicle === VehicleType.BIKE
+    ) {
+      return { accessStatus: AccessStatus.GRANTED, userId: user.id };
+    }
+
+    if (
+      detectedVehicle === VehicleType.CAR ||
+      detectedVehicle === VehicleType.MOTORBIKE
+    ) {
+      if (!detectedPlateNumber) {
+        return {
+          accessStatus: AccessStatus.DENIED,
+          reason: 'Nomor plat tidak terdeteksi',
+          userId: user.id,
+        };
+      }
+
+      if (!user.plateNumber.includes(detectedPlateNumber)) {
+        return {
+          accessStatus: AccessStatus.DENIED,
+          reason: 'Nomor plat tidak terdaftar',
+          userId: user.id,
+        };
+      }
+    }
+
+    return { accessStatus: AccessStatus.GRANTED, userId: user.id };
+  }
+
+  private async handleAccessError(
+    uid: string,
+    detectedVehicle?: VehicleType | null,
+    detectedPlateNumber?: string | null,
+  ): Promise<ProcessAccessResult> {
+    const errorLog = await this.prisma.accessLog.create({
+      data: {
+        uid,
+        status: AccessStatus.DENIED,
+        reason: 'System error',
+        vehicle: detectedVehicle ?? undefined,
+        plateNumber: detectedPlateNumber ?? undefined,
+      },
+    });
+
+    return {
+      access: false,
+      message: 'System error',
+      user: null,
+      detectedVehicle: detectedVehicle ?? null,
+      detectedPlateNumber: detectedPlateNumber ?? null,
+      accessLog: errorLog,
+    };
   }
 }

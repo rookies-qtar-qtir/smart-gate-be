@@ -50,6 +50,7 @@ enum AccessStatus {
 enum VehicleType {
   BIKE
   CAR
+  MOTORBIKE
   NO_VEHICLE
 }
 
