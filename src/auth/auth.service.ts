@@ -46,7 +46,7 @@ export class AuthService {
         const payload: JwtPayload = {
             sub: user.id,
             email: user.email,
-            uid: user.uid,
+            pid: user.pid,
             role: user.role,
             name: user.name,
         };
@@ -55,7 +55,7 @@ export class AuthService {
 
         return {
             id: user.id,
-            uid: user.uid,
+            pid: user.pid,
             email: user.email,
             name: user.name,
             role: user.role,
@@ -64,7 +64,7 @@ export class AuthService {
     }
 
     async registerAdmin(registerAdminDto: RegisterAdminDto): Promise<AuthResponseDto> {
-        const { uid, email, name, password } = registerAdminDto;
+        const { pid, email, name, password } = registerAdminDto;
 
         const existingUserByEmail = await this.prisma.user.findUnique({
             where: { email },
@@ -74,12 +74,12 @@ export class AuthService {
             throw new ConflictException('Email already exists');
         }
 
-        const existingUserByUid = await this.prisma.user.findUnique({
-            where: { uid },
+        const existingUserByPid = await this.prisma.user.findUnique({
+            where: { pid },
         });
 
-        if (existingUserByUid) {
-            throw new ConflictException('UID already exists');
+        if (existingUserByPid) {
+            throw new ConflictException('PID already exists');
         }
 
         const saltRounds = 10;
@@ -87,7 +87,7 @@ export class AuthService {
 
         const user = await this.prisma.user.create({
             data: {
-                uid,
+                pid,
                 email,
                 name,
                 password: hashedPassword,
@@ -99,7 +99,7 @@ export class AuthService {
         const payload: JwtPayload = {
             sub: user.id,
             email: user.email,
-            uid: user.uid,
+            pid: user.pid,
             role: user.role,
             name: user.name,
         };
@@ -108,7 +108,7 @@ export class AuthService {
 
         return {
             id: user.id,
-            uid: user.uid,
+            pid: user.pid,
             email: user.email,
             name: user.name,
             role: user.role,

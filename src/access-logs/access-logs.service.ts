@@ -35,7 +35,7 @@ export class AccessLogsService {
     processAccessDto: ProcessAccessDto,
     imageBuffer?: Buffer,
   ): Promise<ProcessAccessResult> {
-    const { uid } = processAccessDto;
+    const { pid } = processAccessDto;
     let detectedVehicle: VehicleType | null = null;
     let detectedPlateNumber: string | null = null;
 
@@ -64,7 +64,7 @@ export class AccessLogsService {
         }
       }
 
-      const user = await this.prisma.user.findUnique({ where: { uid } });
+      const user = await this.prisma.user.findUnique({ where: { pid } });
       const { accessStatus, reason, userId } = this.determineAccessStatus(
         user,
         detectedVehicle ?? undefined,
@@ -73,7 +73,7 @@ export class AccessLogsService {
 
       const accessLog = await this.prisma.accessLog.create({
         data: {
-          uid,
+          pid,
           status: accessStatus,
           userId,
           reason,
@@ -95,7 +95,7 @@ export class AccessLogsService {
         accessLog,
       };
     } catch (error) {
-      return this.handleAccessError(uid, detectedVehicle, detectedPlateNumber);
+      return this.handleAccessError(pid, detectedVehicle, detectedPlateNumber);
     }
   }
 
@@ -106,9 +106,9 @@ export class AccessLogsService {
     });
   }
 
-  async findByUid(uid: string) {
+  async findByPid(pid: string) {
     return this.prisma.accessLog.findMany({
-      where: { uid },
+      where: { pid },
       include: { user: true },
       orderBy: { timestamp: 'desc' },
     });
@@ -138,49 +138,49 @@ export class AccessLogsService {
     });
   }
 
-  // async testClassifyVehicle(
-  //   imageBuffer: Buffer,
-  // ): Promise<{ vehicleType: VehicleType }> {
-  //   const vehicleType = await this.classificationService.classifyVehicle(imageBuffer);
-  //   return { vehicleType };
-  // }
+  async testClassifyVehicle(
+    imageBuffer: Buffer,
+  ): Promise<{ vehicleType: VehicleType }> {
+    const vehicleType = await this.classificationService.classifyVehicle(imageBuffer);
+    return { vehicleType };
+  }
 
-  // async testWarpPerspective(imageBuffer: Buffer): Promise<WarpTestResult> {
-  //   const segResult = await this.detectionPlateService.cropPlateBySegmentation(
-  //     imageBuffer,
-  //   );
+  async testWarpPerspective(imageBuffer: Buffer): Promise<WarpTestResult> {
+    const segResult = await this.detectionPlateService.cropPlateBySegmentation(
+      imageBuffer,
+    );
 
-  //   if (!segResult) {
-  //     return {
-  //       success: false,
-  //       image: null,
-  //       ocrText: null,
-  //       error: 'No plate detected',
-  //     };
-  //   }
+    if (!segResult) {
+      return {
+        success: false,
+        image: null,
+        ocrText: null,
+        error: 'No plate detected',
+      };
+    }
 
-  //   const { buffer: detectedPlatePng, quad } = segResult;
-  //   let finalImageBase64 = `data:image/png;base64,${detectedPlatePng.toString(
-  //     'base64',
-  //   )}`;
-  //   let ocrText: string | null = null;
+    const { buffer: detectedPlatePng, quad } = segResult;
+    let finalImageBase64 = `data:image/png;base64,${detectedPlatePng.toString(
+      'base64',
+    )}`;
+    let ocrText: string | null = null;
 
-  //   if (quad && quad.length === 4) {
-  //     const warpOcrResult = await this.ocrService.warpAndOcr(detectedPlatePng, quad);
+    if (quad && quad.length === 4) {
+      const warpOcrResult = await this.ocrService.warpAndOcr(detectedPlatePng, quad);
 
-  //     if (warpOcrResult) {
-  //       finalImageBase64 = warpOcrResult.warpedPlate;
-  //       ocrText = warpOcrResult.ocrText;
-  //     }
-  //   }
+      if (warpOcrResult) {
+        finalImageBase64 = warpOcrResult.warpedPlate;
+        ocrText = warpOcrResult.ocrText;
+      }
+    }
 
-  //   return {
-  //     success: true,
-  //     image: finalImageBase64,
-  //     ocrText,
-  //     error: null,
-  //   };
-  // }
+    return {
+      success: true,
+      image: finalImageBase64,
+      ocrText,
+      error: null,
+    };
+  }
 
   // helpers
 
@@ -190,7 +190,7 @@ export class AccessLogsService {
     detectedPlateNumber?: string,
   ): { accessStatus: AccessStatus; reason?: string; userId?: string } {
     if (!user) {
-      return { accessStatus: AccessStatus.DENIED, reason: 'UID tidak terdaftar' };
+      return { accessStatus: AccessStatus.DENIED, reason: 'PID tidak terdaftar' };
     }
 
     if (!user.isActive) {
@@ -234,13 +234,13 @@ export class AccessLogsService {
   }
 
   private async handleAccessError(
-    uid: string,
+    pid: string,
     detectedVehicle?: VehicleType | null,
     detectedPlateNumber?: string | null,
   ): Promise<ProcessAccessResult> {
     const errorLog = await this.prisma.accessLog.create({
       data: {
-        uid,
+        pid,
         status: AccessStatus.DENIED,
         reason: 'System error',
         vehicle: detectedVehicle ?? undefined,

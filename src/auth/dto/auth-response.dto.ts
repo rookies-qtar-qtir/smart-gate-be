@@ -2,7 +2,7 @@ import { Role } from '@prisma/client';
 
 export class AuthResponseDto {
     id: string;
-    uid: string;
+    pid: string;
     email: string;
     name: string;
     role: Role;

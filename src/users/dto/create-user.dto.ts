@@ -3,7 +3,7 @@ import { IsBoolean, isBoolean, IsEmail, IsNotEmpty, IsOptional, IsString, IsArra
 export class CreateUserDto {
   @IsString()
   @IsNotEmpty()
-  uid: string;
+  pid: string;
 
   @IsEmail()
   @IsNotEmpty()

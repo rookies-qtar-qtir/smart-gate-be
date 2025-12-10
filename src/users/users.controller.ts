@@ -55,9 +55,9 @@ export class UsersController {
     };
   }
 
-  @Get('uid/:uid')
-  async findByUid(@Param('uid') uid: string, @CurrentUser() admin: JwtPayload) {
-    const user = await this.usersService.findByUid(uid);
+  @Get('pid/:pid')
+  async findByPid(@Param('pid') pid: string, @CurrentUser() admin: JwtPayload) {
+    const user = await this.usersService.findByPid(pid);
     return {
       statusCode: HttpStatus.OK,
       message: 'User retrieved successfully',
@@ -92,25 +92,25 @@ export class UsersController {
     };
   }
 
-  @Get(':id/access-logs')
-  async findOneWithAccessLogs(@Param('id') id: string, @CurrentUser() admin: JwtPayload) {
-    const user = await this.usersService.findOneWithAccessLogs(id);
-    return {
-      statusCode: HttpStatus.OK,
-      message: 'User with access logs retrieved successfully',
-      data: user,
-      accessedBy: admin.email,
-    };
-  }
+  // @Get(':id/access-logs')
+  // async findOneWithAccessLogs(@Param('id') id: string, @CurrentUser() admin: JwtPayload) {
+  //   const user = await this.usersService.findOneWithAccessLogs(id);
+  //   return {
+  //     statusCode: HttpStatus.OK,
+  //     message: 'User with access logs retrieved successfully',
+  //     data: user,
+  //     accessedBy: admin.email,
+  //   };
+  // }
 
-  @Get('uid/:uid/access-logs')
-  async findByUidWithAccessLogs(@Param('uid') uid: string, @CurrentUser() admin: JwtPayload) {
-    const user = await this.usersService.findByUidWithAccessLogs(uid);
-    return {
-      statusCode: HttpStatus.OK,
-      message: 'User with access logs retrieved successfully',
-      data: user,
-      accessedBy: admin.email,
-    };
-  }
+  // @Get('pid/:pid/access-logs')
+  // async findByPidWithAccessLogs(@Param('pid') pid: string, @CurrentUser() admin: JwtPayload) {
+  //   const user = await this.usersService.findByPidWithAccessLogs(pid);
+  //   return {
+  //     statusCode: HttpStatus.OK,
+  //     message: 'User with access logs retrieved successfully',
+  //     data: user,
+  //     accessedBy: admin.email,
+  //   };
+  // }
 }

@@ -29,7 +29,7 @@ export class OcrService {
         return { warpedPlate: warpedBase64, ocrText };
     }
 
-    async runOCR(base64Image: string): Promise<string | null> {
+    private async runOCR(base64Image: string): Promise<string | null> {
         const inputPath = path.join(os.tmpdir(), `ocr_input_${Date.now()}.png`);
 
         try {

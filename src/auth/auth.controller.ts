@@ -53,7 +53,7 @@ export class AuthController {
             data: {
                 id: user.sub,
                 email: user.email,
-                uid: user.uid,
+                pid: user.pid,
                 role: user.role,
                 name: user.name,
             },

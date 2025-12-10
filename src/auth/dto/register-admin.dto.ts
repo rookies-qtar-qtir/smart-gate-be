@@ -3,7 +3,7 @@ import { IsEmail, IsNotEmpty, IsString, MinLength } from 'class-validator';
 export class RegisterAdminDto {
     @IsString()
     @IsNotEmpty()
-    uid: string;
+    pid: string;
 
     @IsEmail()
     @IsNotEmpty()

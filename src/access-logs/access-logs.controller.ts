@@ -32,10 +32,10 @@ export class AccessLogsController {
     @Body() processAccessDto: ProcessAccessDto,
     @UploadedFile() file?: Express.Multer.File,
   ) {
-    const { uid } = processAccessDto;
+    const { pid } = processAccessDto;
 
-    if (this.processingRequests.has(uid)) {
-      const result = await this.processingRequests.get(uid)!;
+    if (this.processingRequests.has(pid)) {
+      const result = await this.processingRequests.get(pid)!;
       return this.formatAccessResponse(result, true);
     }
 
@@ -44,13 +44,13 @@ export class AccessLogsController {
       file?.buffer,
     );
 
-    this.processingRequests.set(uid, processingPromise);
+    this.processingRequests.set(pid, processingPromise);
 
     try {
       const result = await processingPromise;
       return this.formatAccessResponse(result);
     } finally {
-      this.processingRequests.delete(uid);
+      this.processingRequests.delete(pid);
     }
   }
 
@@ -67,12 +67,12 @@ export class AccessLogsController {
   }
 
   @AdminOnly()
-  @Get('uid/:uid')
-  async findByUid(@Param('uid') uid: string, @CurrentUser() admin: JwtPayload) {
-    const accessLogs = await this.accessLogsService.findByUid(uid);
+  @Get('pid/:pid')
+  async findByPid(@Param('pid') pid: string, @CurrentUser() admin: JwtPayload) {
+    const accessLogs = await this.accessLogsService.findByPid(pid);
     return {
       statusCode: HttpStatus.OK,
-      message: 'Access logs by UID retrieved',
+      message: 'Access logs by PID retrieved',
       data: accessLogs,
       accessedBy: admin.email,
     };
@@ -122,70 +122,70 @@ export class AccessLogsController {
     };
   }
 
-  // @Public()
-  // @Post('test-classification')
-  // @UseInterceptors(FileInterceptor('image'))
-  // async testClassification(@UploadedFile() file: Express.Multer.File) {
-  //   if (!file) {
-  //     throw new BadRequestException('Image file is required');
-  //   }
+  @Public()
+  @Post('test-classification')
+  @UseInterceptors(FileInterceptor('image'))
+  async testClassification(@UploadedFile() file: Express.Multer.File) {
+    if (!file) {
+      throw new BadRequestException('Image file is required');
+    }
 
-  //   try {
-  //     const result = await this.accessLogsService.testClassifyVehicle(file.buffer);
-  //     return {
-  //       statusCode: HttpStatus.OK,
-  //       success: true,
-  //       message: 'Vehicle classification completed',
-  //       data: result,
-  //     };
-  //   } catch (error) {
-  //     throw new HttpException(
-  //       {
-  //         success: false,
-  //         message: 'Classification failed',
-  //         error: (error as Error).message,
-  //       },
-  //       HttpStatus.INTERNAL_SERVER_ERROR,
-  //     );
-  //   }
-  // }
+    try {
+      const result = await this.accessLogsService.testClassifyVehicle(file.buffer);
+      return {
+        statusCode: HttpStatus.OK,
+        success: true,
+        message: 'Vehicle classification completed',
+        data: result,
+      };
+    } catch (error) {
+      throw new HttpException(
+        {
+          success: false,
+          message: 'Classification failed',
+          error: (error as Error).message,
+        },
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
 
-  // @Public()
-  // @Post('test-warp')
-  // @UseInterceptors(FileInterceptor('image'))
-  // async testWarp(@UploadedFile() file: Express.Multer.File) {
-  //   if (!file) {
-  //     throw new BadRequestException('Image file is required');
-  //   }
+  @Public()
+  @Post('test-warp')
+  @UseInterceptors(FileInterceptor('image'))
+  async testWarp(@UploadedFile() file: Express.Multer.File) {
+    if (!file) {
+      throw new BadRequestException('Image file is required');
+    }
 
-  //   try {
-  //     const result: WarpTestResult = await this.accessLogsService.testWarpPerspective(
-  //       file.buffer,
-  //     );
+    try {
+      const result: WarpTestResult = await this.accessLogsService.testWarpPerspective(
+        file.buffer,
+      );
 
-  //     return {
-  //       statusCode: result.success ? HttpStatus.OK : HttpStatus.BAD_REQUEST,
-  //       success: result.success,
-  //       message: result.success
-  //         ? 'Warp perspective test completed'
-  //         : result.error ?? 'Warp perspective test failed',
-  //       data: {
-  //         image: result.image ?? null,
-  //         ocrText: result.ocrText ?? null,
-  //         error: result.error ?? null,
-  //       },
-  //     };
-  //   } catch (error) {
-  //     throw new HttpException(
-  //       {
-  //         success: false,
-  //         message: 'Test warp failed',
-  //         error: (error as Error).message,
-  //       },
-  //       HttpStatus.INTERNAL_SERVER_ERROR,
-  //     );
-  //   }
-  // }
+      return {
+        statusCode: result.success ? HttpStatus.OK : HttpStatus.BAD_REQUEST,
+        success: result.success,
+        message: result.success
+          ? 'Warp perspective test completed'
+          : result.error ?? 'Warp perspective test failed',
+        data: {
+          image: result.image ?? null,
+          ocrText: result.ocrText ?? null,
+          error: result.error ?? null,
+        },
+      };
+    } catch (error) {
+      throw new HttpException(
+        {
+          success: false,
+          message: 'Test warp failed',
+          error: (error as Error).message,
+        },
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
 
   // helpers
 
