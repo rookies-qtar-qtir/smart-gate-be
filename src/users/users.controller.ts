@@ -91,26 +91,4 @@ export class UsersController {
       deletedBy: admin.email,
     };
   }
-
-  // @Get(':id/access-logs')
-  // async findOneWithAccessLogs(@Param('id') id: string, @CurrentUser() admin: JwtPayload) {
-  //   const user = await this.usersService.findOneWithAccessLogs(id);
-  //   return {
-  //     statusCode: HttpStatus.OK,
-  //     message: 'User with access logs retrieved successfully',
-  //     data: user,
-  //     accessedBy: admin.email,
-  //   };
-  // }
-
-  // @Get('pid/:pid/access-logs')
-  // async findByPidWithAccessLogs(@Param('pid') pid: string, @CurrentUser() admin: JwtPayload) {
-  //   const user = await this.usersService.findByPidWithAccessLogs(pid);
-  //   return {
-  //     statusCode: HttpStatus.OK,
-  //     message: 'User with access logs retrieved successfully',
-  //     data: user,
-  //     accessedBy: admin.email,
-  //   };
-  // }
 }

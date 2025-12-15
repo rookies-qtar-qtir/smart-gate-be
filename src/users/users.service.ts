@@ -61,40 +61,4 @@ export class UsersService {
       where: { id },
     });
   }
-
-  // async findOneWithAccessLogs(id: string) {
-  //   const user = await this.prisma.user.findUnique({
-  //     where: { id },
-  //     include: {
-  //       accessLogs: {
-  //         orderBy: { timestamp: 'desc' },
-  //         take: 10,
-  //       },
-  //     },
-  //   });
-
-  //   if (!user) {
-  //     throw new NotFoundException(`User with ID ${id} not found`);
-  //   }
-
-  //   return user;
-  // }
-
-  // async findByPidWithAccessLogs(pid: string) {
-  //   const user = await this.prisma.user.findUnique({
-  //     where: { pid },
-  //     include: {
-  //       accessLogs: {
-  //         orderBy: { timestamp: 'desc' },
-  //         take: 10,
-  //       },
-  //     },
-  //   });
-
-  //   if (!user) {
-  //     throw new NotFoundException(`User with PID ${pid} not found`);
-  //   }
-
-  //   return user;
-  // }
 }
