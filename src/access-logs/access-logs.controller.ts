@@ -55,6 +55,18 @@ export class AccessLogsController {
   }
 
   @AdminOnly()
+  @Get('summary')
+  async getSummary(@CurrentUser() admin: JwtPayload) {
+    const summary = await this.accessLogsService.getAccessSummary();
+    return {
+      statusCode: HttpStatus.OK,
+      message: 'Access logs summary retrieved',
+      data: summary,
+      accessedBy: admin.email,
+    }
+  }
+
+  @AdminOnly()
   @Get()
   async findAll(@CurrentUser() admin: JwtPayload) {
     const accessLogs = await this.accessLogsService.findAll();

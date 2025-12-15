@@ -99,6 +99,24 @@ export class AccessLogsService {
     }
   }
 
+  async getAccessSummary() {
+    const [total, granted, denied] = await Promise.all([
+      this.prisma.accessLog.count(),
+      this.prisma.accessLog.count({
+        where: {status: AccessStatus.GRANTED}
+      }),
+      this.prisma.accessLog.count({
+        where: {status: AccessStatus.DENIED}
+      }),
+    ]);
+
+    return {
+      total,
+      granted,
+      denied,
+    };
+  }
+
   async findAll() {
     return this.prisma.accessLog.findMany({
       include: { user: true },
