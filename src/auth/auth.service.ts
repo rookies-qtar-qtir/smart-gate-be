@@ -2,7 +2,7 @@ import { Injectable, UnauthorizedException, ConflictException } from '@nestjs/co
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma/prisma.service';
 import { LoginDto } from './dto/login.dto';
-import { RegisterAdminDto } from './dto/register-admin.dto';
+import { RegisterAdminDto } from './dto/register-operator.dto';
 import { AuthResponseDto } from './dto/auth-response.dto';
 import { JwtPayload } from './interfaces/jwt-payload.interface';
 import { Role } from '@prisma/client';
@@ -30,7 +30,7 @@ export class AuthService {
             throw new UnauthorizedException('User account is inactive');
         }
 
-        if (user.role !== Role.ADMIN) {
+        if (user.role !== Role.OPERATOR) {
             throw new UnauthorizedException('Admin access required');
         }
 
@@ -91,7 +91,7 @@ export class AuthService {
                 email,
                 name,
                 password: hashedPassword,
-                role: Role.ADMIN,
+                role: Role.OPERATOR,
                 isActive: true,
             },
         });

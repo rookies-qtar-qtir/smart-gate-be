@@ -7,8 +7,8 @@ async function updateRoles() {
       update: "User",
       updates: [
         {
-          q: { role: "USER" },
-          u: { $set: { role: "PENGHUNI" } },
+          q: { role: "ADMIN" },
+          u: { $set: { role: "OPERATOR" } },
           multi: true
         }
       ]

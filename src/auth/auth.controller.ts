@@ -9,12 +9,12 @@ import {
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
-import { RegisterAdminDto } from './dto/register-admin.dto';
+import { RegisterAdminDto } from './dto/register-operator.dto';
 import { Public } from './decorators/public.decorator';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { CurrentUser } from './decorators/current-user.decorator';
 import { JwtPayload } from './interfaces/jwt-payload.interface';
-// import { AdminOnly } from './decorators/admin-only.decorator';
+// import { AdminOnly } from './decorators/operator-only.decorator';
 
 @Controller('auth')
 export class AuthController {
@@ -33,7 +33,7 @@ export class AuthController {
     }
 
     @Public()
-    @Post('register/admin')
+    @Post('register/operator')
     @HttpCode(HttpStatus.CREATED)
     async registerAdmin(@Body() registerAdminDto: RegisterAdminDto) {
         const result = await this.authService.registerAdmin(registerAdminDto);
@@ -60,9 +60,9 @@ export class AuthController {
         };
     }
 
-    // @Get('admin/test')
+    // @Get('operator/test')
     // @AdminOnly()
-    // async adminTest(@CurrentUser() user: JwtPayload) {
+    // async operatorTest(@CurrentUser() user: JwtPayload) {
     //     return {
     //         statusCode: HttpStatus.OK,
     //         message: 'Admin endpoint accessed successfully',

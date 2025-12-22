@@ -12,57 +12,57 @@ import {
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
-import { AdminOnly } from '../auth/decorators/admin-only.decorator';
+import { OperatorOnly } from '../auth/decorators/operator-only.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
 
 @Controller('users')
-@AdminOnly()
+  @OperatorOnly()
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
-  async create(@Body() createUserDto: CreateUserDto, @CurrentUser() admin: JwtPayload) {
+  async create(@Body() createUserDto: CreateUserDto, @CurrentUser() operator: JwtPayload) {
     const user = await this.usersService.create(createUserDto);
     return {
       statusCode: HttpStatus.CREATED,
       message: 'User created successfully',
       data: user,
-      createdBy: admin.email,
+      createdBy: operator.email,
     };
   }
 
   @Get()
-  async findAll(@CurrentUser() admin: JwtPayload) {
+  async findAll(@CurrentUser() operator: JwtPayload) {
     const users = await this.usersService.findAll();
     return {
       statusCode: HttpStatus.OK,
       message: 'Users retrieved successfully',
       data: users,
-      accessedBy: admin.email,
+      accessedBy: operator.email,
     };
   }
 
   @Get(':id')
-  async findOne(@Param('id') id: string, @CurrentUser() admin: JwtPayload) {
+  async findOne(@Param('id') id: string, @CurrentUser() operator: JwtPayload) {
     const user = await this.usersService.findOne(id);
     return {
       statusCode: HttpStatus.OK,
       message: 'User retrieved successfully',
       data: user,
-      accessedBy: admin.email,
+      accessedBy: operator.email,
     };
   }
 
   @Get('pid/:pid')
-  async findByPid(@Param('pid') pid: string, @CurrentUser() admin: JwtPayload) {
+  async findByPid(@Param('pid') pid: string, @CurrentUser() operator: JwtPayload) {
     const user = await this.usersService.findByPid(pid);
     return {
       statusCode: HttpStatus.OK,
       message: 'User retrieved successfully',
       data: user,
-      accessedBy: admin.email,
+      accessedBy: operator.email,
     };
   }
 
@@ -70,25 +70,25 @@ export class UsersController {
   async update(
     @Param('id') id: string, 
     @Body() updateUserDto: UpdateUserDto,
-    @CurrentUser() admin: JwtPayload
+    @CurrentUser() operator: JwtPayload
   ) {
     const user = await this.usersService.update(id, updateUserDto);
     return {
       statusCode: HttpStatus.OK,
       message: 'User updated successfully',
       data: user,
-      updatedBy: admin.email,
+      updatedBy: operator.email,
     };
   }
 
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
-  async remove(@Param('id') id: string, @CurrentUser() admin: JwtPayload) {
+  async remove(@Param('id') id: string, @CurrentUser() operator: JwtPayload) {
     await this.usersService.remove(id);
     return {
       statusCode: HttpStatus.OK,
       message: 'User deleted successfully',
-      deletedBy: admin.email,
+      deletedBy: operator.email,
     };
   }
 }

@@ -55,6 +55,6 @@ enum VehicleType {
 }
 
 enum Role {
-  ADMIN
+  OPERATOR
   PENGHUNI
 }

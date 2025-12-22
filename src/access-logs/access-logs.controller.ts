@@ -15,7 +15,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { AccessLogsService, ProcessAccessResult, WarpTestResult } from './access-logs.service';
 import { ProcessAccessDto } from './dto/process-access.dto';
 import { Public } from '../auth/decorators/public.decorator';
-import { AdminOnly } from '../auth/decorators/admin-only.decorator';
+import { OperatorOnly } from '../auth/decorators/operator-only.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
 
@@ -54,48 +54,48 @@ export class AccessLogsController {
     }
   }
 
-  @AdminOnly()
+  @OperatorOnly()
   @Get('summary')
-  async getSummary(@CurrentUser() admin: JwtPayload) {
+  async getSummary(@CurrentUser() operator: JwtPayload) {
     const summary = await this.accessLogsService.getAccessSummary();
     return {
       statusCode: HttpStatus.OK,
       message: 'Access logs summary retrieved',
       data: summary,
-      accessedBy: admin.email,
+      accessedBy: operator.email,
     }
   }
 
-  @AdminOnly()
+  @OperatorOnly()
   @Get()
-  async findAll(@CurrentUser() admin: JwtPayload) {
+  async findAll(@CurrentUser() operator: JwtPayload) {
     const accessLogs = await this.accessLogsService.findAll();
     return {
       statusCode: HttpStatus.OK,
       message: 'Access logs retrieved',
       data: accessLogs,
-      accessedBy: admin.email,
+      accessedBy: operator.email,
     };
   }
 
-  @AdminOnly()
+  @OperatorOnly()
   @Get('pid/:pid')
-  async findByPid(@Param('pid') pid: string, @CurrentUser() admin: JwtPayload) {
+  async findByPid(@Param('pid') pid: string, @CurrentUser() operator: JwtPayload) {
     const accessLogs = await this.accessLogsService.findByPid(pid);
     return {
       statusCode: HttpStatus.OK,
       message: 'Access logs by PID retrieved',
       data: accessLogs,
-      accessedBy: admin.email,
+      accessedBy: operator.email,
     };
   }
 
-  @AdminOnly()
+  @OperatorOnly()
   @Get('date-range')
   async findByDateRange(
     @Query('startDate') startDate: string,
     @Query('endDate') endDate: string,
-    @CurrentUser() admin: JwtPayload,
+    @CurrentUser() operator: JwtPayload,
   ) {
     const start = new Date(startDate);
     const end = new Date(endDate);
@@ -106,31 +106,31 @@ export class AccessLogsController {
       statusCode: HttpStatus.OK,
       message: 'Access logs by date range retrieved',
       data: accessLogs,
-      accessedBy: admin.email,
+      accessedBy: operator.email,
     };
   }
 
-  @AdminOnly()
+  @OperatorOnly()
   @Get('granted')
-  async findGrantedAccess(@CurrentUser() admin: JwtPayload) {
+  async findGrantedAccess(@CurrentUser() operator: JwtPayload) {
     const accessLogs = await this.accessLogsService.findGrantedAccess();
     return {
       statusCode: HttpStatus.OK,
       message: 'Granted access logs retrieved',
       data: accessLogs,
-      accessedBy: admin.email,
+      accessedBy: operator.email,
     };
   }
 
-  @AdminOnly()
+  @OperatorOnly()
   @Get('denied')
-  async findDeniedAccess(@CurrentUser() admin: JwtPayload) {
+  async findDeniedAccess(@CurrentUser() operator: JwtPayload) {
     const accessLogs = await this.accessLogsService.findDeniedAccess();
     return {
       statusCode: HttpStatus.OK,
       message: 'Denied access logs retrieved',
       data: accessLogs,
-      accessedBy: admin.email,
+      accessedBy: operator.email,
     };
   }
 
