@@ -124,49 +124,10 @@ export class AccessLogsService {
     });
   }
 
-  async findByPid(pid: string) {
-    return this.prisma.accessLog.findMany({
-      where: { pid },
-      include: { user: true },
-      orderBy: { timestamp: 'desc' },
-    });
-  }
-
-  async findByDateRange(startDate: Date, endDate: Date) {
-    return this.prisma.accessLog.findMany({
-      where: { timestamp: { gte: startDate, lte: endDate } },
-      include: { user: true },
-      orderBy: { timestamp: 'desc' },
-    });
-  }
-
-  async findGrantedAccess() {
-    return this.prisma.accessLog.findMany({
-      where: { status: AccessStatus.GRANTED },
-      include: { user: true },
-      orderBy: { timestamp: 'desc' },
-    });
-  }
-
-  async findDeniedAccess() {
-    return this.prisma.accessLog.findMany({
-      where: { status: AccessStatus.DENIED },
-      include: { user: true },
-      orderBy: { timestamp: 'desc' },
-    });
-  }
-
-  async testClassifyVehicle(
-    imageBuffer: Buffer,
-  ): Promise<{ vehicleType: VehicleType }> {
-    const vehicleType = await this.classificationService.classifyVehicle(imageBuffer);
-    return { vehicleType };
-  }
+  // test
 
   async testWarpPerspective(imageBuffer: Buffer): Promise<WarpTestResult> {
-    const segResult = await this.detectionPlateService.cropPlateBySegmentation(
-      imageBuffer,
-    );
+    const segResult = await this.detectionPlateService.cropPlateBySegmentation(imageBuffer);
 
     if (!segResult) {
       return {
@@ -174,13 +135,12 @@ export class AccessLogsService {
         image: null,
         ocrText: null,
         error: 'No plate detected',
-      };
+      }
     }
 
-    const { buffer: detectedPlatePng, quad } = segResult;
-    let finalImageBase64 = `data:image/png;base64,${detectedPlatePng.toString(
-      'base64',
-    )}`;
+    const {buffer: detectedPlatePng, quad} = segResult;
+    let finalImageBase64 = `data:image/png;base64,${detectedPlatePng.toString('base64')}`;
+
     let ocrText: string | null = null;
 
     if (quad && quad.length === 4) {
@@ -197,7 +157,7 @@ export class AccessLogsService {
       image: finalImageBase64,
       ocrText,
       error: null,
-    };
+    }
   }
 
   // helpers

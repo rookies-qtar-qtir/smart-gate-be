@@ -14,7 +14,6 @@ import { Public } from './decorators/public.decorator';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { CurrentUser } from './decorators/current-user.decorator';
 import { JwtPayload } from './interfaces/jwt-payload.interface';
-// import { AdminOnly } from './decorators/operator-only.decorator';
 
 @Controller('auth')
 export class AuthController {
@@ -59,17 +58,4 @@ export class AuthController {
             },
         };
     }
-
-    // @Get('operator/test')
-    // @AdminOnly()
-    // async operatorTest(@CurrentUser() user: JwtPayload) {
-    //     return {
-    //         statusCode: HttpStatus.OK,
-    //         message: 'Admin endpoint accessed successfully',
-    //         data: {
-    //             user: user,
-    //             timestamp: new Date().toISOString(),
-    //         },
-    //     };
-    // }
 }

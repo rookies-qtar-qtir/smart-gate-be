@@ -23,7 +23,7 @@ import { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
 export class AccessLogsController {
   private processingRequests = new Map<string, Promise<ProcessAccessResult>>();
 
-  constructor(private readonly accessLogsService: AccessLogsService) {}
+  constructor(private readonly accessLogsService: AccessLogsService) { }
 
   @Public()
   @Post('process')
@@ -78,143 +78,58 @@ export class AccessLogsController {
     };
   }
 
-  @OperatorOnly()
-  @Get('pid/:pid')
-  async findByPid(@Param('pid') pid: string, @CurrentUser() operator: JwtPayload) {
-    const accessLogs = await this.accessLogsService.findByPid(pid);
-    return {
-      statusCode: HttpStatus.OK,
-      message: 'Access logs by PID retrieved',
-      data: accessLogs,
-      accessedBy: operator.email,
-    };
-  }
-
-  @OperatorOnly()
-  @Get('date-range')
-  async findByDateRange(
-    @Query('startDate') startDate: string,
-    @Query('endDate') endDate: string,
-    @CurrentUser() operator: JwtPayload,
-  ) {
-    const start = new Date(startDate);
-    const end = new Date(endDate);
-    end.setHours(23, 59, 59, 999);
-
-    const accessLogs = await this.accessLogsService.findByDateRange(start, end);
-    return {
-      statusCode: HttpStatus.OK,
-      message: 'Access logs by date range retrieved',
-      data: accessLogs,
-      accessedBy: operator.email,
-    };
-  }
-
-  @OperatorOnly()
-  @Get('granted')
-  async findGrantedAccess(@CurrentUser() operator: JwtPayload) {
-    const accessLogs = await this.accessLogsService.findGrantedAccess();
-    return {
-      statusCode: HttpStatus.OK,
-      message: 'Granted access logs retrieved',
-      data: accessLogs,
-      accessedBy: operator.email,
-    };
-  }
-
-  @OperatorOnly()
-  @Get('denied')
-  async findDeniedAccess(@CurrentUser() operator: JwtPayload) {
-    const accessLogs = await this.accessLogsService.findDeniedAccess();
-    return {
-      statusCode: HttpStatus.OK,
-      message: 'Denied access logs retrieved',
-      data: accessLogs,
-      accessedBy: operator.email,
-    };
-  }
-
-  @Public()
-  @Post('test-classification')
-  @UseInterceptors(FileInterceptor('image'))
-  async testClassification(@UploadedFile() file: Express.Multer.File) {
-    if (!file) {
-      throw new BadRequestException('Image file is required');
-    }
-
-    try {
-      const result = await this.accessLogsService.testClassifyVehicle(file.buffer);
-      return {
-        statusCode: HttpStatus.OK,
-        success: true,
-        message: 'Vehicle classification completed',
-        data: result,
-      };
-    } catch (error) {
-      throw new HttpException(
-        {
-          success: false,
-          message: 'Classification failed',
-          error: (error as Error).message,
-        },
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
-    }
-  }
-
+  // test
   @Public()
   @Post('test-warp')
   @UseInterceptors(FileInterceptor('image'))
-  async testWarp(@UploadedFile() file: Express.Multer.File) {
+  async testWaro(@UploadedFile() file: Express.Multer.File) {
     if (!file) {
       throw new BadRequestException('Image file is required');
     }
 
     try {
-      const result: WarpTestResult = await this.accessLogsService.testWarpPerspective(
-        file.buffer,
-      );
-
-      return {
-        statusCode: result.success ? HttpStatus.OK : HttpStatus.BAD_REQUEST,
-        success: result.success,
-        message: result.success
-          ? 'Warp perspective test completed'
-          : result.error ?? 'Warp perspective test failed',
-        data: {
-          image: result.image ?? null,
-          ocrText: result.ocrText ?? null,
-          error: result.error ?? null,
-        },
-      };
-    } catch (error) {
-      throw new HttpException(
-        {
-          success: false,
-          message: 'Test warp failed',
-          error: (error as Error).message,
-        },
-        HttpStatus.INTERNAL_SERVER_ERROR,
-      );
-    }
+      const result: WarpTestResult = await this.accessLogsService.testWarpPerspective(file.buffer);
+  
+    return {
+      statusCode: result.success ? HttpStatus.OK : HttpStatus.BAD_REQUEST,
+      success: result.success,
+      message: result.success
+        ? 'Warp perspective test completed'
+        : result.error ?? 'Warp perspective test failed',
+      data: {
+        image: result.image ?? null,
+        ocrText: result.ocrText ?? null,
+        error: result.error ?? null,
+      },
+    };
+  } catch(error) {
+    throw new HttpException(
+      {
+        success: false,
+        message: 'Test warp failed',
+        error: (error as Error).message,
+      },
+      HttpStatus.INTERNAL_SERVER_ERROR,
+    );
   }
+}
 
   // helpers
 
   private formatAccessResponse(
-    result: ProcessAccessResult,
-    isDuplicate = false,
-  ) {
-    return {
-      statusCode: result.access ? HttpStatus.OK : HttpStatus.FORBIDDEN,
-      message: isDuplicate ? `${result.message} (duplicate request)` : result.message,
-      data: {
-        access: result.access,
-        user: result.user,
-        detectedVehicle: result.detectedVehicle,
-        detectedPlateNumber: result.detectedPlateNumber,
-        accessLog: result.accessLog,
-      },
-    };
-  }
+  result: ProcessAccessResult,
+  isDuplicate = false,
+) {
+  return {
+    statusCode: result.access ? HttpStatus.OK : HttpStatus.FORBIDDEN,
+    message: isDuplicate ? `${result.message} (duplicate request)` : result.message,
+    data: {
+      access: result.access,
+      user: result.user,
+      detectedVehicle: result.detectedVehicle,
+      detectedPlateNumber: result.detectedPlateNumber,
+      accessLog: result.accessLog,
+    },
+  };
+}
 }
