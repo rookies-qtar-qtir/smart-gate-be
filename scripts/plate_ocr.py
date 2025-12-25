@@ -13,13 +13,11 @@ _reader = None
 # Regex pattern for valid Indonesian plate format: 1-2 letters, 1-4 digits, 0-3 letters
 PLATE_ID_RE = re.compile(r"^[A-Z]{1,2}\d{1,4}[A-Z]{0,3}$")
 
-
 def get_reader():
     global _reader
     if _reader is None:
         _reader = easyocr.Reader(["en"], verbose=False, gpu=True)
     return _reader
-
 
 def find_top_contrast_band(gray: np.ndarray) -> tuple[int, int]:
     h, _ = gray.shape
@@ -80,10 +78,8 @@ def preprocess_for_ocr(bgr: np.ndarray) -> np.ndarray:
 
     return cv2.cvtColor(band_blur, cv2.COLOR_GRAY2RGB)
 
-
 def _letters_only_fix(s: str) -> str:
     return "".join(DIGIT_TO_LETTER.get(ch, ch) if ch.isdigit() else ch for ch in s)
-
 
 def normalize_plate_text_id(raw_text: str) -> str:
     if not raw_text:
@@ -175,7 +171,6 @@ def normalize_plate_text_id(raw_text: str) -> str:
 
     return best or base_text
 
-
 def _score_candidate(norm: str, avg_prob: float) -> float:
     if not norm:
         return -1e9
@@ -185,7 +180,6 @@ def _score_candidate(norm: str, avg_prob: float) -> float:
     score += len(norm) * 5.0
     score += avg_prob * 100.0
     return score
-
 
 # Preprocess -> OCR -> generate candidates -> normalize -> score -> return best
 def extract_plate_text(bgr: np.ndarray) -> str:
@@ -260,7 +254,6 @@ def main():
         sys.exit(1)
 
     print(extract_plate_text(bgr))
-
 
 if __name__ == "__main__":
     main()
