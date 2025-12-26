@@ -82,7 +82,7 @@ export class AccessLogsController {
   @Public()
   @Post('test-warp')
   @UseInterceptors(FileInterceptor('image'))
-  async testWaro(@UploadedFile() file: Express.Multer.File) {
+  async testWarp(@UploadedFile() file: Express.Multer.File) {
     if (!file) {
       throw new BadRequestException('Image file is required');
     }
@@ -98,6 +98,7 @@ export class AccessLogsController {
         : result.error ?? 'Warp perspective test failed',
       data: {
         image: result.image ?? null,
+        processedImage: result.processedImage ?? null,
         ocrText: result.ocrText ?? null,
         error: result.error ?? null,
       },

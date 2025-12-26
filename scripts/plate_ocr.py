@@ -4,14 +4,15 @@ import cv2
 import easyocr
 import numpy as np
 import re
+import json
+import base64
 from plate_regions import VALID_PREFIXES, DIGIT_TO_LETTER, LETTER_TO_DIGIT
 
 os.environ["PYTHONIOENCODING"] = "utf-8"
 
 _reader = None
 
-# Regex pattern for valid Indonesian plate format: 1-2 letters, 1-4 digits, 0-3 letters
-PLATE_ID_RE = re.compile(r"^[A-Z]{1,2}\d{1,4}[A-Z]{0,3}$")
+PLATE_ID_RE = re.compile(r"^[A-Z]{1,2}\d{1,4}[A-Z]{1,3}$")
 
 def get_reader():
     global _reader
@@ -64,7 +65,7 @@ def preprocess_for_ocr(bgr: np.ndarray) -> np.ndarray:
     gray = cv2.cvtColor(bgr, cv2.COLOR_BGR2GRAY)
     clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
     gray_eq = clahe.apply(gray)
-    
+   
     y1, y2 = find_top_contrast_band(gray_eq)
     band = gray_eq[y1:y2, :]
     band_blur = cv2.GaussianBlur(band, (3, 3), 0)
@@ -73,6 +74,7 @@ def preprocess_for_ocr(bgr: np.ndarray) -> np.ndarray:
     target_h = 60
     if h < target_h:
         scale = target_h / float(h)
+        if w == 0: w = 1
         new_w = int(w * scale)
         band_blur = cv2.resize(band_blur, (new_w, target_h), interpolation=cv2.INTER_CUBIC)
 
@@ -181,13 +183,13 @@ def _score_candidate(norm: str, avg_prob: float) -> float:
     score += avg_prob * 100.0
     return score
 
-# Preprocess -> OCR -> generate candidates -> normalize -> score -> return best
-def extract_plate_text(bgr: np.ndarray) -> str:
+def extract_plate_text_and_image(bgr: np.ndarray) -> tuple[str, np.ndarray]:
     reader = get_reader()
-    if reader is None:
-        return ""
-
+    
     processed = preprocess_for_ocr(bgr)
+
+    if reader is None:
+        return "", processed
 
     results = reader.readtext(
         processed,
@@ -197,7 +199,7 @@ def extract_plate_text(bgr: np.ndarray) -> str:
     )
 
     if not results:
-        return ""
+        return "", processed
 
     # Sort text segments left to right
     results_sorted = sorted(results, key=lambda r: r[0][0][0])
@@ -235,25 +237,51 @@ def extract_plate_text(bgr: np.ndarray) -> str:
             best_score = sc
             best_norm = norm
 
-    return best_norm
+    return best_norm, processed
 
 def main():
+    output = {
+        "ocrText": None,
+        "processedImage": None,
+        "error": None
+    }
+
     if len(sys.argv) < 2:
-        print("Error: Image file path is required", file=sys.stderr)
+        output["error"] = "Image file path is required"
+        print(json.dumps(output))
         sys.exit(1)
 
     image_path = sys.argv[1]
 
     if not os.path.exists(image_path):
-        print(f"Error: File {image_path} does not exist", file=sys.stderr)
+        output["error"] = f"File {image_path} does not exist"
+        print(json.dumps(output))
         sys.exit(1)
 
     bgr = cv2.imread(image_path)
     if bgr is None:
-        print(f"Error: Could not read image from {image_path}", file=sys.stderr)
+        output["error"] = f"Could not read image from {image_path}"
+        print(json.dumps(output))
         sys.exit(1)
 
-    print(extract_plate_text(bgr))
+    try:
+        ocr_text, processed_img = extract_plate_text_and_image(bgr)
+        
+        output["ocrText"] = ocr_text
+
+        if processed_img is not None:
+            # Encode ke PNG
+            retval, buffer = cv2.imencode('.png', processed_img)
+            if retval:
+                b64_str = base64.b64encode(buffer).decode('utf-8')
+                output["processedImage"] = f"data:image/png;base64,{b64_str}"
+
+        print(json.dumps(output))
+
+    except Exception as e:
+        output["error"] = str(e)
+        print(json.dumps(output))
+        sys.exit(1)
 
 if __name__ == "__main__":
     main()

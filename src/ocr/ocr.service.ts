@@ -7,9 +7,16 @@ import * as os from 'os';
 type Point = [number, number];
 type Quad = [Point, Point, Point, Point];
 
-interface WarpOcrResult {
-    warpedPlate: string;
+export interface WarpOcrResult {
+    warpedPlate: string;  
+    processedPlate?: string;  
     ocrText: string | null;
+}
+
+interface PythonOcrResponse {
+    ocrText: string | null;
+    processedImage: string | null;
+    error: string | null;
 }
 
 @Injectable()
@@ -24,12 +31,17 @@ export class OcrService {
         if (!warpedBuffer) return null;
 
         const warpedBase64 = `data:image/png;base64,${warpedBuffer.toString('base64')}`;
-        const ocrText = await this.runOCR(warpedBase64);
 
-        return { warpedPlate: warpedBase64, ocrText };
+        const ocrResult = await this.runOCR(warpedBase64);
+
+        return {
+            warpedPlate: warpedBase64,
+            processedPlate: ocrResult.processedImage ?? undefined,
+            ocrText: ocrResult.ocrText
+        };
     }
 
-    private async runOCR(base64Image: string): Promise<string | null> {
+    private async runOCR(base64Image: string): Promise<PythonOcrResponse> {
         const inputPath = path.join(os.tmpdir(), `ocr_input_${Date.now()}.png`);
 
         try {
@@ -40,8 +52,43 @@ export class OcrService {
         } catch (error) {
             console.error('OCR processing failed:', error);
             this.cleanupFile(inputPath);
-            return null;
+            return { ocrText: null, processedImage: null, error: 'Exception occurred' };
         }
+    }
+
+    private executePythonOCR(inputPath: string): Promise<PythonOcrResponse> {
+        return new Promise((resolve) => {
+            const process = spawn('python3', ['scripts/plate_ocr.py', inputPath]);
+
+            let stdOutput = '';
+            let errorOutput = '';
+
+            process.stdout.on('data', (data) => (stdOutput += data.toString()));
+            process.stderr.on('data', (data) => (errorOutput += data.toString()));
+
+            process.on('close', (exitCode) => {
+                this.cleanupFile(inputPath);
+
+                if (exitCode === 0) {
+                    try {
+                        const result: PythonOcrResponse = JSON.parse(stdOutput.trim());
+                        resolve(result);
+                    } catch (e) {
+                        console.error('Failed to parse Python JSON output:', stdOutput);
+                        resolve({ ocrText: null, processedImage: null, error: 'Invalid JSON output from script' });
+                    }
+                } else {
+                    console.error('OCR script error:', errorOutput);
+                    resolve({ ocrText: null, processedImage: null, error: errorOutput });
+                }
+            });
+
+            process.on('error', (error) => {
+                console.error('Failed to start Python process:', error);
+                this.cleanupFile(inputPath);
+                resolve({ ocrText: null, processedImage: null, error: error.message });
+            });
+        });
     }
 
     private async warpPerspective(imageBuffer: Buffer, quad: Quad): Promise<Buffer | null> {
@@ -61,35 +108,6 @@ export class OcrService {
             this.cleanupFile(inputPath);
             this.cleanupFile(outputPath);
         }
-    }
-
-    private executePythonOCR(inputPath: string): Promise<string | null> {
-        return new Promise((resolve) => {
-            const process = spawn('python3', ['scripts/plate_ocr.py', inputPath]);
-
-            let stdOutput = '';
-            let errorOutput = '';
-
-            process.stdout.on('data', (data) => (stdOutput += data.toString()));
-            process.stderr.on('data', (data) => (errorOutput += data.toString()));
-
-            process.on('close', (exitCode) => {
-                this.cleanupFile(inputPath);
-
-                if (exitCode === 0) {
-                    resolve(stdOutput.trim());
-                } else {
-                    console.error('OCR script error:', errorOutput);
-                    resolve(null);
-                }
-            });
-
-            process.on('error', (error) => {
-                console.error('Failed to start Python process:', error);
-                this.cleanupFile(inputPath);
-                resolve(null);
-            });
-        });
     }
 
     private executePythonWarp(inputPath: string, outputPath: string, quad: Quad): Promise<boolean> {

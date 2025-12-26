@@ -18,6 +18,7 @@ export interface ProcessAccessResult {
 export interface WarpTestResult {
   success: boolean;
   image: string | null;
+  processedImage: string | null;
   ocrText: string | null;
   error: string | null;
 }
@@ -29,7 +30,7 @@ export class AccessLogsService {
     private classificationService: ClassificationService,
     private ocrService: OcrService,
     private detectionPlateService: DetectionPlateService,
-  ) {}
+  ) { }
 
   async processRFIDAccess(
     processAccessDto: ProcessAccessDto,
@@ -103,10 +104,10 @@ export class AccessLogsService {
     const [total, granted, denied] = await Promise.all([
       this.prisma.accessLog.count(),
       this.prisma.accessLog.count({
-        where: {status: AccessStatus.GRANTED}
+        where: { status: AccessStatus.GRANTED }
       }),
       this.prisma.accessLog.count({
-        where: {status: AccessStatus.DENIED}
+        where: { status: AccessStatus.DENIED }
       }),
     ]);
 
@@ -133,15 +134,17 @@ export class AccessLogsService {
       return {
         success: false,
         image: null,
+        processedImage: null,
         ocrText: null,
         error: 'No plate detected',
       }
     }
 
-    const {buffer: detectedPlatePng, quad} = segResult;
+    const { buffer: detectedPlatePng, quad } = segResult;
     let finalImageBase64 = `data:image/png;base64,${detectedPlatePng.toString('base64')}`;
 
     let ocrText: string | null = null;
+    let processedImage: string | null = null;
 
     if (quad && quad.length === 4) {
       const warpOcrResult = await this.ocrService.warpAndOcr(detectedPlatePng, quad);
@@ -149,12 +152,14 @@ export class AccessLogsService {
       if (warpOcrResult) {
         finalImageBase64 = warpOcrResult.warpedPlate;
         ocrText = warpOcrResult.ocrText;
+        processedImage = warpOcrResult.processedPlate || null;
       }
     }
 
     return {
       success: true,
       image: finalImageBase64,
+      processedImage: processedImage,
       ocrText,
       error: null,
     }
