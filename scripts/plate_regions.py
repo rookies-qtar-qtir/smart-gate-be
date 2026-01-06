@@ -111,27 +111,29 @@ VALID_PREFIXES = {
 
     # --- MALUKU & PAPUA ---
     "DE": {"wilayah": "Maluku"}, "DG": {"wilayah": "Maluku Utara"},
-    "PA": {"wilayah": "Papua"}, "PB": {"wilayah": "Papua Barat"}
+    "PA": {"wilayah": "Papua"}, "PB": {"wilayah": "Papua Barat"},
+    
+    "RI": { "wilayah": "Kendaraan Dinas Pejabat Negara" },
 }
 
 # Mapping OCR ambiguity
 DIGIT_TO_LETTER = {
     "0": "O",
-    "1": "I",
     "2": "Z",
     "4": "L",
     "5": "S",
     "6": "G",
     "8": "B",
+    "1": "I",
 }
 
 LETTER_TO_DIGIT = {
     "O": "0",
     "Q": "0",
-    "I": "1",
     "Z": "2",
     "S": "5",
     "G": "6",
     "B": "8",
     "L": "4",
+    "I": "1",
 }
