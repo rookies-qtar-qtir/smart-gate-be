@@ -15,11 +15,12 @@ import { UpdateUserDto } from './dto/update-user.dto';
 import { OperatorOnly } from '../auth/decorators/operator-only.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
+import { DeleteUserDto } from './dto/delete-user.dto';
 
 @Controller('users')
 @OperatorOnly()
 export class UsersController {
-  constructor(private readonly usersService: UsersService) {}
+  constructor(private readonly usersService: UsersService) { }
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
@@ -68,7 +69,7 @@ export class UsersController {
 
   @Patch(':id')
   async update(
-    @Param('id') id: string, 
+    @Param('id') id: string,
     @Body() updateUserDto: UpdateUserDto,
     @CurrentUser() operator: JwtPayload
   ) {
@@ -82,9 +83,13 @@ export class UsersController {
   }
 
   @Delete(':id')
-  @HttpCode(HttpStatus.NO_CONTENT)
-  async remove(@Param('id') id: string, @CurrentUser() operator: JwtPayload) {
-    await this.usersService.remove(id);
+  @HttpCode(HttpStatus.OK)
+  async remove(
+    @Param('id') id: string,
+    @Body() DeleteUserDto: DeleteUserDto,
+    @CurrentUser() operator: JwtPayload
+  ) {
+    await this.usersService.remove(id, DeleteUserDto.pin);
     return {
       statusCode: HttpStatus.OK,
       message: 'User deleted successfully',

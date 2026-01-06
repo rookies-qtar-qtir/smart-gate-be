@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
@@ -54,7 +54,13 @@ export class UsersService {
     });
   }
 
-  async remove(id: string) {
+  async remove(id: string, pin: string) {
+    const validPin = process.env.PIN_DELETE;
+
+    if (pin != validPin) {
+      throw new UnauthorizedException('Invalid PIN')
+    }
+
     const user = await this.findOne(id);
 
     return await this.prisma.user.delete({
