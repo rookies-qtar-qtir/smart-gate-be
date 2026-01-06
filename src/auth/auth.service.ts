@@ -2,7 +2,7 @@ import { Injectable, UnauthorizedException, ConflictException } from '@nestjs/co
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma/prisma.service';
 import { LoginDto } from './dto/login.dto';
-import { RegisterAdminDto } from './dto/register-operator.dto';
+// import { RegisterAdminDto } from './dto/register-operator.dto';
 import { AuthResponseDto } from './dto/auth-response.dto';
 import { JwtPayload } from './interfaces/jwt-payload.interface';
 import { Role } from '@prisma/client';
@@ -31,7 +31,7 @@ export class AuthService {
         }
 
         if (user.role !== Role.OPERATOR) {
-            throw new UnauthorizedException('Admin access required');
+            throw new UnauthorizedException('Operator access required');
         }
 
         if (!user.password) {
@@ -63,68 +63,56 @@ export class AuthService {
         };
     }
 
-    async registerAdmin(registerAdminDto: RegisterAdminDto): Promise<AuthResponseDto> {
-        const { pid, email, name, password } = registerAdminDto;
+    // async registerAdmin(registerAdminDto: RegisterAdminDto): Promise<AuthResponseDto> {
+    //     const { pid, email, name, password } = registerAdminDto;
 
-        const existingUserByEmail = await this.prisma.user.findUnique({
-            where: { email },
-        });
+    //     const existingUserByEmail = await this.prisma.user.findUnique({
+    //         where: { email },
+    //     });
 
-        if (existingUserByEmail) {
-            throw new ConflictException('Email already exists');
-        }
+    //     if (existingUserByEmail) {
+    //         throw new ConflictException('Email already exists');
+    //     }
 
-        const existingUserByPid = await this.prisma.user.findUnique({
-            where: { pid },
-        });
+    //     const existingUserByPid = await this.prisma.user.findUnique({
+    //         where: { pid },
+    //     });
 
-        if (existingUserByPid) {
-            throw new ConflictException('PID already exists');
-        }
+    //     if (existingUserByPid) {
+    //         throw new ConflictException('PID already exists');
+    //     }
 
-        const saltRounds = 10;
-        const hashedPassword = await bcrypt.hash(password, saltRounds);
+    //     const saltRounds = 10;
+    //     const hashedPassword = await bcrypt.hash(password, saltRounds);
 
-        const user = await this.prisma.user.create({
-            data: {
-                pid,
-                email,
-                name,
-                password: hashedPassword,
-                role: Role.OPERATOR,
-                isActive: true,
-            },
-        });
+    //     const user = await this.prisma.user.create({
+    //         data: {
+    //             pid,
+    //             email,
+    //             name,
+    //             password: hashedPassword,
+    //             role: Role.OPERATOR,
+    //             isActive: true,
+    //         },
+    //     });
 
-        const payload: JwtPayload = {
-            sub: user.id,
-            email: user.email,
-            pid: user.pid,
-            role: user.role,
-            name: user.name,
-        };
+    //     const payload: JwtPayload = {
+    //         sub: user.id,
+    //         email: user.email,
+    //         pid: user.pid,
+    //         role: user.role,
+    //         name: user.name,
+    //     };
 
-        const accessToken = this.jwtService.sign(payload);
+    //     const accessToken = this.jwtService.sign(payload);
 
-        return {
-            id: user.id,
-            pid: user.pid,
-            email: user.email,
-            name: user.name,
-            role: user.role,
-            access_token: accessToken,
-        };
-    }
-
-    async validateUser(payload: JwtPayload): Promise<any> {
-        const user = await this.prisma.user.findUnique({
-            where: { id: payload.sub },
-        });
-
-        if (!user || !user.isActive) {
-            throw new UnauthorizedException('User not found or inactive');
-        }
-
-        return user;
-    }
+    //     return {
+    //         id: user.id,
+    //         pid: user.pid,
+    //         email: user.email,
+    //         name: user.name,
+    //         role: user.role,
+    //         access_token: accessToken,
+    //     };
+    // }
 }

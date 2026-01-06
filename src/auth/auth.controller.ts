@@ -11,9 +11,6 @@ import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterAdminDto } from './dto/register-operator.dto';
 import { Public } from './decorators/public.decorator';
-import { JwtAuthGuard } from './guards/jwt-auth.guard';
-import { CurrentUser } from './decorators/current-user.decorator';
-import { JwtPayload } from './interfaces/jwt-payload.interface';
 
 @Controller('auth')
 export class AuthController {
@@ -31,31 +28,15 @@ export class AuthController {
         };
     }
 
-    @Public()
-    @Post('register/operator')
-    @HttpCode(HttpStatus.CREATED)
-    async registerAdmin(@Body() registerAdminDto: RegisterAdminDto) {
-        const result = await this.authService.registerAdmin(registerAdminDto);
-        return {
-            statusCode: HttpStatus.CREATED,
-            message: 'Admin registered successfully',
-            data: result,
-        };
-    }
-
-    @Get('profile')
-    @UseGuards(JwtAuthGuard)
-    async getProfile(@CurrentUser() user: JwtPayload) {
-        return {
-            statusCode: HttpStatus.OK,
-            message: 'Profile retrieved successfully',
-            data: {
-                id: user.sub,
-                email: user.email,
-                pid: user.pid,
-                role: user.role,
-                name: user.name,
-            },
-        };
-    }
+    // @Public()
+    // @Post('register/operator')
+    // @HttpCode(HttpStatus.CREATED)
+    // async registerAdmin(@Body() registerAdminDto: RegisterAdminDto) {
+    //     const result = await this.authService.registerAdmin(registerAdminDto);
+    //     return {
+    //         statusCode: HttpStatus.CREATED,
+    //         message: 'Admin registered successfully',
+    //         data: result,
+    //     };
+    // }
 }
