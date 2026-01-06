@@ -133,6 +133,7 @@ def normalize_plate_text_id(raw_text: str) -> tuple[str, float]:
     best_logic_score = -99999.0
     found_valid = False
 
+    # CLEANING VARIATION
     text_variations = [base_text]
     if len(base_text) > 1 and base_text[0] in ['I', '1']:
         text_variations.append(base_text[1:])
@@ -237,6 +238,7 @@ def extract_plate_text_and_image(bgr: np.ndarray) -> tuple[str, np.ndarray]:
 
     results_sorted = sorted(results, key=lambda r: r[0][0][0])
     
+    # COLLECTING TEXT PIECES
     pieces = []
     probs = []
     for _, txt, prob in results_sorted:
@@ -247,9 +249,11 @@ def extract_plate_text_and_image(bgr: np.ndarray) -> tuple[str, np.ndarray]:
 
     raw_candidates = []
 
+    # CREATE CANDIDATE
     for i, t in enumerate(pieces):
         raw_candidates.append((t, probs[i]))
 
+    # COMBINE CANDIDATE
     if pieces:
         joined = "".join(pieces)
         avg_prob = sum(probs) / max(1, len(probs))
