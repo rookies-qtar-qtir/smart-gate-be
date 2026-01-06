@@ -17,7 +17,7 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
 
 @Controller('users')
-  @OperatorOnly()
+@OperatorOnly()
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
