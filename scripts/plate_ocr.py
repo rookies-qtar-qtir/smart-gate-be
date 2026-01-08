@@ -24,7 +24,10 @@ def find_top_contrast_band(gray: np.ndarray) -> tuple[int, int]:
     h, _ = gray.shape
     row_var = gray.var(axis=1).astype(np.float32)
     max_var = float(row_var.max())
-    if max_var < 1e-3: return 0, h
+    
+    if max_var < 1e-3: 
+        return 0, int(h * 0.75)
+    
     thr = 0.3 * max_var
     text_rows = row_var > thr
     segments = []
@@ -38,14 +41,26 @@ def find_top_contrast_band(gray: np.ndarray) -> tuple[int, int]:
             in_seg = False
             segments.append((start, i - 1))
     if in_seg: segments.append((start, h - 1))
-    if not segments: return 0, h
+    
+    if not segments: 
+        return 0, int(h * 0.75)
+    
     min_height = max(5, int(0.2 * h))
     candidates = [seg for seg in segments if (seg[1] - seg[0] + 1) >= min_height]
+    
     if not candidates: candidates = segments
-    start, end = sorted(candidates, key=lambda s: s[0])[0]
+    
+    best_start, best_end = sorted(candidates, key=lambda s: s[0])[0]
+    
     margin = max(1, int(0.05 * h))
-    y1 = max(0, start - margin)
-    y2 = min(h, end + margin + 1)
+    y1 = max(0, best_start - margin)
+    y2 = min(h, best_end + margin + 1)
+    
+    current_height = y2 - y1
+
+    if current_height < (h * 0.40):
+        return 0, int(h * 0.75)
+        
     return y1, y2
 
 def remove_plate_borders(gray_img: np.ndarray) -> np.ndarray:
@@ -71,8 +86,10 @@ def preprocess_for_ocr(bgr: np.ndarray) -> np.ndarray:
     gray = cv2.cvtColor(bgr, cv2.COLOR_BGR2GRAY)
     clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
     gray_eq = clahe.apply(gray)
+    
     y1, y2 = find_top_contrast_band(gray_eq)
     band = gray_eq[y1:y2, :]
+    
     band = remove_plate_borders(band)
     band_blur = cv2.GaussianBlur(band, (3, 3), 0)
     h, w = band_blur.shape
