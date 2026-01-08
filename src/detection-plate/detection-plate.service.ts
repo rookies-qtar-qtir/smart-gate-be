@@ -21,7 +21,7 @@ interface LetterboxResult {
 export class DetectionPlateService implements OnModuleInit {
     private plateModel: tf.GraphModel | null = null;
     private readonly logger = new Logger(DetectionPlateService.name);
-    private readonly confThreshold = 0.25;
+    private readonly confThreshold = 0.75;
 
     async onModuleInit() {
         const modelPath = 'file://' + join(process.cwd(), 'models', 'detection', 'best_seg_web_model', 'model.json');

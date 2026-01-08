@@ -15,6 +15,17 @@ export interface ProcessAccessResult {
   accessLog: any;
 }
 
+export interface ManualAccessResult {
+  access: boolean;
+  message: string;
+  user:string | null;
+  accessLog: {
+    status: AccessStatus;
+    reason: string | null;
+    timestamp: Date;
+  };
+}
+
 export interface WarpTestResult {
   success: boolean;
   image: string | null;
@@ -100,6 +111,33 @@ export class AccessLogsService {
     }
   }
 
+  async processManualAccess(operatorId: string): Promise<ManualAccessResult> {
+    try {
+      const accessLog = await this.prisma.accessLog.create({
+        data: {
+          status: AccessStatus.GRANTED,
+          reason: 'Dibuka manual oleh Operator',
+          isManual: true,
+          userId: operatorId,
+        },
+        include: {user: true},
+      });
+
+      return {
+        access: true,
+        message: 'Palang dibuka secara manual',
+        user: accessLog.user?.name ?? null,
+        accessLog: {
+          status: accessLog.status,
+          reason: accessLog.reason,
+          timestamp: accessLog.timestamp,
+        },
+      };
+    } catch (error) {
+      throw new Error('Gagal mencatat pembukaan manual')
+    }
+  }
+
   async getAccessSummary() {
     const [total, granted, denied] = await Promise.all([
       this.prisma.accessLog.count(),
@@ -136,7 +174,7 @@ export class AccessLogsService {
         image: null,
         processedImage: null,
         ocrText: null,
-        error: 'No plate detected',
+        error: 'Pelat Tidak Terdeteksi',
       }
     }
 

@@ -28,7 +28,7 @@ export class AccessLogsController {
   @Public()
   @Post('process')
   @UseInterceptors(FileInterceptor('image'))
-  async processAccess(
+  async processRFIDAccess(
     @Body() processAccessDto: ProcessAccessDto,
     @UploadedFile() file?: Express.Multer.File,
   ) {
@@ -52,6 +52,22 @@ export class AccessLogsController {
     } finally {
       this.processingRequests.delete(pid);
     }
+  }
+
+  @OperatorOnly()
+  @Post('manual')
+  async processManualAccess(@CurrentUser() operator: JwtPayload) {
+    const result = await this.accessLogsService.processManualAccess(operator.sub);
+
+    return {
+      statusCode: HttpStatus.OK,
+      message: result.message,
+      data: {
+        ...result.accessLog,
+        user: result.user,
+      },
+      accessedBy: operator.email,
+    };
   }
 
   @OperatorOnly()
@@ -89,48 +105,48 @@ export class AccessLogsController {
 
     try {
       const result: WarpTestResult = await this.accessLogsService.testWarpPerspective(file.buffer);
-  
-    return {
-      statusCode: result.success ? HttpStatus.OK : HttpStatus.BAD_REQUEST,
-      success: result.success,
-      message: result.success
-        ? 'Warp perspective test completed'
-        : result.error ?? 'Warp perspective test failed',
-      data: {
-        image: result.image ?? null,
-        processedImage: result.processedImage ?? null,
-        ocrText: result.ocrText ?? null,
-        error: result.error ?? null,
-      },
-    };
-  } catch(error) {
-    throw new HttpException(
-      {
-        success: false,
-        message: 'Test warp failed',
-        error: (error as Error).message,
-      },
-      HttpStatus.INTERNAL_SERVER_ERROR,
-    );
+
+      return {
+        statusCode: result.success ? HttpStatus.OK : HttpStatus.BAD_REQUEST,
+        success: result.success,
+        message: result.success
+          ? 'Warp perspective test completed'
+          : result.error ?? 'Warp perspective test failed',
+        data: {
+          image: result.image ?? null,
+          processedImage: result.processedImage ?? null,
+          ocrText: result.ocrText ?? null,
+          error: result.error ?? null,
+        },
+      };
+    } catch (error) {
+      throw new HttpException(
+        {
+          success: false,
+          message: 'Test warp failed',
+          error: (error as Error).message,
+        },
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
   }
-}
 
   // helpers
 
   private formatAccessResponse(
-  result: ProcessAccessResult,
-  isDuplicate = false,
-) {
-  return {
-    statusCode: result.access ? HttpStatus.OK : HttpStatus.FORBIDDEN,
-    message: isDuplicate ? `${result.message} (duplicate request)` : result.message,
-    data: {
-      access: result.access,
-      user: result.user,
-      detectedVehicle: result.detectedVehicle,
-      detectedPlateNumber: result.detectedPlateNumber,
-      accessLog: result.accessLog,
-    },
-  };
-}
+    result: ProcessAccessResult,
+    isDuplicate = false,
+  ) {
+    return {
+      statusCode: result.access ? HttpStatus.OK : HttpStatus.FORBIDDEN,
+      message: isDuplicate ? `${result.message} (duplicate request)` : result.message,
+      data: {
+        access: result.access,
+        user: result.user,
+        detectedVehicle: result.detectedVehicle,
+        detectedPlateNumber: result.detectedPlateNumber,
+        accessLog: result.accessLog,
+      },
+    };
+  }
 }
