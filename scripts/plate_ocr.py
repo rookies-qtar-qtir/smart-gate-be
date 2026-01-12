@@ -91,15 +91,16 @@ def preprocess_for_ocr(bgr: np.ndarray) -> np.ndarray:
     band = gray_eq[y1:y2, :]
     
     band = remove_plate_borders(band)
-    band_blur = cv2.GaussianBlur(band, (3, 3), 0)
-    h, w = band_blur.shape
+    band_smooth = cv2.bilateralFilter(band, 7, 50, 50)
+    band_sharp = cv2.addWeighted(band_smooth, 1.3, cv2.GaussianBlur(band_smooth, (0, 0), 1.0), -0.3, 0,)
+    h, w = band_sharp.shape
     target_h = 60
     if h < target_h:
         scale = target_h / float(h)
         if w == 0: w = 1
         new_w = int(w * scale)
-        band_blur = cv2.resize(band_blur, (new_w, target_h), interpolation=cv2.INTER_CUBIC)
-    return cv2.cvtColor(band_blur, cv2.COLOR_GRAY2RGB)
+        band_sharp = cv2.resize(band_sharp, (new_w, target_h), interpolation=cv2.INTER_CUBIC)
+    return cv2.cvtColor(band_sharp, cv2.COLOR_GRAY2RGB)
 
 def _letters_only_fix(s: str) -> str:
     return "".join(DIGIT_TO_LETTER.get(ch, ch) if ch.isdigit() else ch for ch in s)

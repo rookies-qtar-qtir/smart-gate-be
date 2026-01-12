@@ -19,6 +19,8 @@ interface PythonOcrResponse {
     error: string | null;
 }
 
+const pythonCmd = process.env.PYTHON_BIN ?? (process.platform === 'win32' ? 'python' : 'python3');
+
 @Injectable()
 export class OcrService {
     async warpAndOcr(imageBuffer: Buffer, quad: Quad | null): Promise<WarpOcrResult | null> {
@@ -58,7 +60,7 @@ export class OcrService {
 
     private executePythonOCR(inputPath: string): Promise<PythonOcrResponse> {
         return new Promise((resolve) => {
-            const process = spawn('python3', ['scripts/plate_ocr.py', inputPath]);
+            const process = spawn(pythonCmd, ['scripts/plate_ocr.py', inputPath]);
 
             let stdOutput = '';
             let errorOutput = '';
@@ -113,7 +115,7 @@ export class OcrService {
     private executePythonWarp(inputPath: string, outputPath: string, quad: Quad): Promise<boolean> {
         return new Promise((resolve) => {
             const args = ['scripts/warp_perspective.py', inputPath, outputPath, ...quad.flat().map(String)];
-            const process = spawn('python3', args);
+            const process = spawn(pythonCmd, args);
 
             let errorOutput = '';
 
