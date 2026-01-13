@@ -105,39 +105,49 @@ def preprocess_for_ocr(bgr: np.ndarray) -> np.ndarray:
 def _letters_only_fix(s: str) -> str:
     return "".join(DIGIT_TO_LETTER.get(ch, ch) if ch.isdigit() else ch for ch in s)
 
-def calculate_logic_score(cand_plate: str, prefix: str, suffix: str, region_data: dict) -> float:
-    logic_score = 0.0
-
-    logic_score += 100 
+def calculate_logic_score(cand_plate: str, prefix: str, suffix: str, region_data: dict, conversion_count: int) -> float:
+    logic_score = 100.0
 
     if "detail" in region_data:
         if not suffix:
-            logic_score -= 20
+            logic_score -= 50
         else:
             first_char_suffix = suffix[0]
             is_valid_region_code = False
-            
+
             for area_name, allowed_codes in region_data["detail"].items():
                 if first_char_suffix in allowed_codes:
                     is_valid_region_code = True
                     break
-            
+
             if is_valid_region_code:
                 logic_score += 150
             else:
-                logic_score -= 200
+                logic_score += 20
     else:
-        logic_score += 50
+        logic_score += 100
 
     digits = re.findall(r'\d+', cand_plate)
     if digits:
-        num_len = len(digits[0])
-        if num_len > 4: 
-            logic_score -= 100
+        number_str = digits[0]
+        num_len = len(number_str)
+
+        if num_len > 4:
+            logic_score -= 200
         elif num_len == 0:
             logic_score -= 500
+        elif number_str.startswith('0'):
+            logic_score -= 100
+    else:
+        logic_score -= 500
+
+    logic_score -= (conversion_count * 60.0)
+
+    if len(prefix) == 2:
+        logic_score += 20
 
     return logic_score
+
 
 def normalize_plate_text_id(raw_text: str) -> tuple[str, float]:
     if not raw_text:
@@ -151,62 +161,88 @@ def normalize_plate_text_id(raw_text: str) -> tuple[str, float]:
     best_logic_score = -99999.0
     found_valid = False
 
-    # CLEANING VARIATION
     text_variations = [base_text]
     if len(base_text) > 1 and base_text[0] in ['I', '1']:
         text_variations.append(base_text[1:])
 
     for text in text_variations:
-        if not text: continue
+        if not text:
+            continue
 
-        for prefix_len in (2, 1):
-            if len(text) <= prefix_len: continue
+        for prefix_len in range(1, 3):
+            if len(text) <= prefix_len:
+                continue
 
             prefix_raw = text[:prefix_len]
             rest_raw = text[prefix_len:]
-            
-            has_digit_in_prefix = any(ch.isdigit() for ch in prefix_raw)
-            
-            prefix = _letters_only_fix(prefix_raw)
 
-            if not prefix.isalpha(): continue
-            if prefix not in VALID_PREFIXES: continue
+            conversion_cost = 0
+
+            prefix_fixed_list = []
+            for ch in prefix_raw:
+                if ch.isdigit():
+                    converted = DIGIT_TO_LETTER.get(ch, ch)
+                    if converted != ch:
+                        conversion_cost += 1
+                    prefix_fixed_list.append(converted)
+                else:
+                    prefix_fixed_list.append(ch)
+
+            prefix = "".join(prefix_fixed_list)
+
+            if prefix not in VALID_PREFIXES:
+                continue
 
             region_data = VALID_PREFIXES[prefix]
 
             digits = []
             idx = 0
+
             while idx < len(rest_raw) and len(digits) < 4:
                 ch = rest_raw[idx]
-                mapped = LETTER_TO_DIGIT.get(ch, ch)
-                if mapped.isdigit():
-                    digits.append(mapped)
+
+                if ch.isdigit():
+                    digits.append(ch)
                     idx += 1
                 else:
-                    break
-            
-            if not digits: continue
+                    mapped = LETTER_TO_DIGIT.get(ch, None)
+
+                    if mapped is not None:
+                        digits.append(mapped)
+                        conversion_cost += 1
+                        idx += 1
+                    else:
+                        break
+
+            if not digits:
+                continue
 
             number = "".join(digits)
             suffix_raw = rest_raw[idx:]
-            
-            suffix = _letters_only_fix(suffix_raw)
 
-            if len(suffix) > 3: continue
-            if suffix and (not suffix.isalpha()): continue
+            suffix_fixed_list = []
+            for ch in suffix_raw:
+                if ch.isdigit():
+                    converted = DIGIT_TO_LETTER.get(ch, ch)
+                    if converted != ch:
+                        conversion_cost += 1
+                    suffix_fixed_list.append(converted)
+                else:
+                    suffix_fixed_list.append(ch)
+
+            suffix = "".join(suffix_fixed_list)
+
+            if len(suffix) > 3:
+                continue
 
             cand = prefix + number + suffix
 
             if not PLATE_ID_RE.match(cand):
                 continue
 
-            current_logic_score = calculate_logic_score(cand, prefix, suffix, region_data)
-
-            if has_digit_in_prefix:
-                current_logic_score -= 150.0 
-
-            if prefix_len == 1 and not has_digit_in_prefix:
-                current_logic_score += 50.0
+            current_logic_score = calculate_logic_score(
+                cand, prefix, suffix, region_data, conversion_cost
+            )
 
             if current_logic_score > best_logic_score:
                 best_logic_score = current_logic_score
@@ -217,6 +253,7 @@ def normalize_plate_text_id(raw_text: str) -> tuple[str, float]:
         return base_text, -500.0
 
     return best_cand, best_logic_score
+
 
 def _score_candidate(norm: str, avg_prob: float, logic_score: float) -> float:
     if not norm:
