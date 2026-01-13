@@ -65,21 +65,39 @@ def find_top_contrast_band(gray: np.ndarray) -> tuple[int, int]:
 
 def remove_plate_borders(gray_img: np.ndarray) -> np.ndarray:
     h, w = gray_img.shape
+    
+    if w / h > 3.5:
+        return gray_img
+
     _, binary = cv2.threshold(gray_img, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+    
     contours, _ = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    
     valid_rects = []
     for cnt in contours:
         x, y, cw, ch = cv2.boundingRect(cnt)
         aspect_ratio = cw / float(ch)
         height_ratio = ch / float(h)
-        if 0.35 < height_ratio < 0.95 and 0.1 < aspect_ratio < 1.0:
+        
+        if 0.2 < height_ratio < 0.95 and 0.1 < aspect_ratio < 1.5:
             valid_rects.append((x, y, cw, ch))
-    if not valid_rects: return gray_img
+            
+    if not valid_rects: 
+        return gray_img
+    
     min_x = min(r[0] for r in valid_rects)
     max_x = max(r[0] + r[2] for r in valid_rects)
-    padding = 2
+    
+    new_width = max_x - min_x
+    
+    if new_width < (w * 0.5):
+        return gray_img
+    
+    padding = max(10, int(w * 0.05))
+    
     new_x1 = max(0, min_x - padding)
     new_x2 = min(w, max_x + padding)
+    
     return gray_img[:, new_x1:new_x2]
 
 def preprocess_for_ocr(bgr: np.ndarray) -> np.ndarray:
