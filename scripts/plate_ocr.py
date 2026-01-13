@@ -20,16 +20,18 @@ def get_reader():
         _reader = easyocr.Reader(["en"], verbose=False, gpu=True, recognizer=True, detector=False)
     return _reader
 
-def find_top_contrast_band(gray: np.ndarray) -> tuple[int, int]:
-    h, _ = gray.shape
-    row_var = gray.var(axis=1).astype(np.float32)
+def find_top_contrast_band(gray_image: np.ndarray) -> np.ndarray:
+    h, w = gray_image.shape
+
+    row_var = gray_image.var(axis=1).astype(np.float32)
     max_var = float(row_var.max())
     
     if max_var < 1e-3: 
-        return 0, int(h * 0.75)
+        return gray_image[0:int(h * 0.75), :]
     
     thr = 0.3 * max_var
     text_rows = row_var > thr
+    
     segments = []
     in_seg = False
     start = 0
@@ -43,7 +45,7 @@ def find_top_contrast_band(gray: np.ndarray) -> tuple[int, int]:
     if in_seg: segments.append((start, h - 1))
     
     if not segments: 
-        return 0, int(h * 0.75)
+        return gray_image[0:int(h * 0.75), :]
     
     min_height = max(5, int(0.2 * h))
     candidates = [seg for seg in segments if (seg[1] - seg[0] + 1) >= min_height]
@@ -59,17 +61,17 @@ def find_top_contrast_band(gray: np.ndarray) -> tuple[int, int]:
     current_height = y2 - y1
 
     if current_height < (h * 0.40):
-        return 0, int(h * 0.75)
+        return gray_image[0:int(h * 0.75), :]
         
-    return y1, y2
+    return gray_image[y1:y2, :]
 
-def remove_plate_borders(gray_img: np.ndarray) -> np.ndarray:
-    h, w = gray_img.shape
+def remove_plate_borders(gray_image: np.ndarray) -> np.ndarray:
+    h, w = gray_image.shape
     
     if w / h > 3.5:
-        return gray_img
+        return gray_image
 
-    _, binary = cv2.threshold(gray_img, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+    _, binary = cv2.threshold(gray_image, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
     
     contours, _ = cv2.findContours(binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     
@@ -83,7 +85,7 @@ def remove_plate_borders(gray_img: np.ndarray) -> np.ndarray:
             valid_rects.append((x, y, cw, ch))
             
     if not valid_rects: 
-        return gray_img
+        return gray_image
     
     min_x = min(r[0] for r in valid_rects)
     max_x = max(r[0] + r[2] for r in valid_rects)
@@ -91,26 +93,28 @@ def remove_plate_borders(gray_img: np.ndarray) -> np.ndarray:
     new_width = max_x - min_x
     
     if new_width < (w * 0.5):
-        return gray_img
+        return gray_image
     
     padding = max(10, int(w * 0.05))
     
     new_x1 = max(0, min_x - padding)
     new_x2 = min(w, max_x + padding)
     
-    return gray_img[:, new_x1:new_x2]
+    return gray_image[:, new_x1:new_x2]
 
 def preprocess_for_ocr(bgr: np.ndarray) -> np.ndarray:
     gray = cv2.cvtColor(bgr, cv2.COLOR_BGR2GRAY)
     clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
     gray_eq = clahe.apply(gray)
     
-    y1, y2 = find_top_contrast_band(gray_eq)
-    band = gray_eq[y1:y2, :]
+    band_v = find_top_contrast_band(gray_eq)
     
-    band = remove_plate_borders(band)
-    band_smooth = cv2.bilateralFilter(band, 7, 50, 50)
+    band_h = remove_plate_borders(band_v)
+
+    band_smooth = cv2.bilateralFilter(band_h, 7, 50, 50)
+    
     band_sharp = cv2.addWeighted(band_smooth, 1.3, cv2.GaussianBlur(band_smooth, (0, 0), 1.0), -0.3, 0,)
+    
     h, w = band_sharp.shape
     target_h = 60
     if h < target_h:
@@ -118,6 +122,7 @@ def preprocess_for_ocr(bgr: np.ndarray) -> np.ndarray:
         if w == 0: w = 1
         new_w = int(w * scale)
         band_sharp = cv2.resize(band_sharp, (new_w, target_h), interpolation=cv2.INTER_CUBIC)
+        
     return cv2.cvtColor(band_sharp, cv2.COLOR_GRAY2RGB)
 
 def _letters_only_fix(s: str) -> str:
