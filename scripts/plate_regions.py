@@ -118,7 +118,7 @@ VALID_PREFIXES = {
 
 # Mapping OCR ambiguity
 DIGIT_TO_LETTER = {
-    "0": "O",
+    "0": "D",
     "2": "Z",
     "4": "L",
     "5": "S",
@@ -129,6 +129,7 @@ DIGIT_TO_LETTER = {
 
 LETTER_TO_DIGIT = {
     "O": "0",
+    "D": "0",
     "Q": "0",
     "Z": "2",
     "S": "5",

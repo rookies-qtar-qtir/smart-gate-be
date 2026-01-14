@@ -198,6 +198,8 @@ def normalize_plate_text_id(raw_text: str) -> tuple[str, float]:
 
             prefix_raw = text[:prefix_len]
             rest_raw = text[prefix_len:]
+            
+            prefix_raw = prefix_raw.replace("X", "K")
 
             conversion_cost = 0
 
