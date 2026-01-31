@@ -29,7 +29,7 @@ export class ClassificationService implements OnModuleInit {
             process.cwd(),
             'models',
             'classification',
-            'best_web_model',
+            'model_tfjs',
             'model.json'
         );
 

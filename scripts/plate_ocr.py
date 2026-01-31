@@ -125,9 +125,6 @@ def preprocess_for_ocr(bgr: np.ndarray) -> np.ndarray:
         
     return cv2.cvtColor(band_sharp, cv2.COLOR_GRAY2RGB)
 
-def _letters_only_fix(s: str) -> str:
-    return "".join(DIGIT_TO_LETTER.get(ch, ch) if ch.isdigit() else ch for ch in s)
-
 def calculate_logic_score(cand_plate: str, prefix: str, suffix: str, region_data: dict, conversion_count: int) -> float:
     logic_score = 100.0
 
