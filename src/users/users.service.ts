@@ -2,11 +2,11 @@ import { Injectable, NotFoundException, UnauthorizedException, ConflictException
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
-import { Prisma } from '@prisma/client';
+import { Prisma, Role } from '@prisma/client';
 
 @Injectable()
 export class UsersService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService) { }
 
   async create(createUserDto: CreateUserDto) {
     try {
@@ -27,13 +27,21 @@ export class UsersService {
 
   async findAll(page: number = 1) {
     const skip = (page - 1) * this.PAGE_SIZE;
+
+    const filterCondition = {
+      role: Role.PENGHUNI,
+    };
+
     const [data, total] = await Promise.all([
       this.prisma.user.findMany({
+        where: filterCondition,
         orderBy: { createdAt: 'desc' },
         skip,
         take: this.PAGE_SIZE,
       }),
-      this.prisma.user.count(),
+      this.prisma.user.count({
+        where: filterCondition,
+      }),
     ]);
 
     return {
