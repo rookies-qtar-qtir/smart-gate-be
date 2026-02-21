@@ -8,8 +8,8 @@ type Point = [number, number];
 type Quad = [Point, Point, Point, Point];
 
 export interface WarpOcrResult {
-    warpedPlate: string;  
-    processedPlate?: string;  
+    warpedPlate: string;
+    processedPlate?: string;
     ocrText: string | null;
 }
 
@@ -19,21 +19,30 @@ interface PythonOcrResponse {
     error: string | null;
 }
 
-const pythonCmd = process.env.PYTHON_BIN ?? (process.platform === 'win32' ? 'python' : 'python3');
-
 @Injectable()
 export class OcrService {
-    async warpAndOcr(imageBuffer: Buffer, quad: Quad | null): Promise<WarpOcrResult | null> {
-        if (!quad || quad.length !== 4) {
-            console.error('Invalid quad for warp');
-            return null;
+    private getPythonCommand(): string {
+        if (process.env.PYTHON_BIN) return process.env.PYTHON_BIN;
+
+        const venvPath = path.join(process.cwd(), '.venv');
+        if (fs.existsSync(venvPath)) {
+            return path.join(
+                venvPath,
+                process.platform === 'win32' ? 'Scripts' : 'bin',
+                process.platform === 'win32' ? 'python.exe' : 'python'
+            );
         }
+
+        return process.platform === 'win32' ? 'python' : 'python3';
+    }
+
+    async warpAndOcr(imageBuffer: Buffer, quad: Quad | null): Promise<WarpOcrResult | null> {
+        if (!quad || quad.length !== 4) return null;
 
         const warpedBuffer = await this.warpPerspective(imageBuffer, quad);
         if (!warpedBuffer) return null;
 
         const warpedBase64 = `data:image/png;base64,${warpedBuffer.toString('base64')}`;
-
         const ocrResult = await this.runOCR(warpedBase64);
 
         return {
@@ -49,10 +58,8 @@ export class OcrService {
         try {
             const base64Data = base64Image.replace(/^data:image\/\w+;base64,/, '');
             fs.writeFileSync(inputPath, Buffer.from(base64Data, 'base64'));
-
             return await this.executePythonOCR(inputPath);
         } catch (error) {
-            console.error('OCR processing failed:', error);
             this.cleanupFile(inputPath);
             return { ocrText: null, processedImage: null, error: 'Exception occurred' };
         }
@@ -60,15 +67,16 @@ export class OcrService {
 
     private executePythonOCR(inputPath: string): Promise<PythonOcrResponse> {
         return new Promise((resolve) => {
-            const process = spawn(pythonCmd, ['scripts/plate_ocr.py', inputPath]);
+            const scriptPath = path.join(process.cwd(), 'scripts', 'plate_ocr.py');
+            const childPython = spawn(this.getPythonCommand(), [scriptPath, inputPath]);
 
             let stdOutput = '';
             let errorOutput = '';
 
-            process.stdout.on('data', (data) => (stdOutput += data.toString()));
-            process.stderr.on('data', (data) => (errorOutput += data.toString()));
+            childPython.stdout.on('data', (data) => (stdOutput += data.toString()));
+            childPython.stderr.on('data', (data) => (errorOutput += data.toString()));
 
-            process.on('close', (exitCode) => {
+            childPython.on('close', (exitCode) => {
                 this.cleanupFile(inputPath);
 
                 if (exitCode === 0) {
@@ -76,17 +84,14 @@ export class OcrService {
                         const result: PythonOcrResponse = JSON.parse(stdOutput.trim());
                         resolve(result);
                     } catch (e) {
-                        console.error('Failed to parse Python JSON output:', stdOutput);
-                        resolve({ ocrText: null, processedImage: null, error: 'Invalid JSON output from script' });
+                        resolve({ ocrText: null, processedImage: null, error: 'Invalid JSON output' });
                     }
                 } else {
-                    console.error('OCR script error:', errorOutput);
                     resolve({ ocrText: null, processedImage: null, error: errorOutput });
                 }
             });
 
-            process.on('error', (error) => {
-                console.error('Failed to start Python process:', error);
+            childPython.on('error', (error) => {
                 this.cleanupFile(inputPath);
                 resolve({ ocrText: null, processedImage: null, error: error.message });
             });
@@ -100,12 +105,9 @@ export class OcrService {
 
         try {
             fs.writeFileSync(inputPath, imageBuffer);
-
             const success = await this.executePythonWarp(inputPath, outputPath, quad);
             if (!success) return null;
-
-            const warpedBuffer = fs.readFileSync(outputPath);
-            return warpedBuffer;
+            return fs.readFileSync(outputPath);
         } finally {
             this.cleanupFile(inputPath);
             this.cleanupFile(outputPath);
@@ -114,24 +116,15 @@ export class OcrService {
 
     private executePythonWarp(inputPath: string, outputPath: string, quad: Quad): Promise<boolean> {
         return new Promise((resolve) => {
-            const args = ['scripts/warp_perspective.py', inputPath, outputPath, ...quad.flat().map(String)];
-            const process = spawn(pythonCmd, args);
+            const scriptPath = path.join(process.cwd(), 'scripts', 'warp_perspective.py');
+            const args = [scriptPath, inputPath, outputPath, ...quad.flat().map(String)];
+            const childPython = spawn(this.getPythonCommand(), args);
 
-            let errorOutput = '';
-
-            process.stderr.on('data', (data) => (errorOutput += data.toString()));
-
-            process.on('close', (exitCode) => {
-                if (exitCode === 0) {
-                    resolve(true);
-                } else {
-                    console.error('Warp script error:', errorOutput);
-                    resolve(false);
-                }
+            childPython.on('close', (exitCode) => {
+                resolve(exitCode === 0);
             });
 
-            process.on('error', (error) => {
-                console.error('Failed to start Python warp process:', error);
+            childPython.on('error', () => {
                 resolve(false);
             });
         });
@@ -142,8 +135,6 @@ export class OcrService {
             if (fs.existsSync(filePath)) {
                 fs.unlinkSync(filePath);
             }
-        } catch (error) {
-            console.warn('Failed to delete temp file:', error);
-        }
+        } catch (error) { }
     }
 }

@@ -36,11 +36,9 @@ export class DetectionPlateService implements OnModuleInit {
             const imgOrig = tf.node.decodeImage(imageBuffer, 3).squeeze() as tf.Tensor3D;
             const [origH, origW] = imgOrig.shape;
 
-            // Preprocess
             const { img: lbImg, ratio, dw, dh } = this.letterbox(imgOrig, 640);
             const input = lbImg.toFloat().div(255).expandDims(0) as tf.Tensor4D;
 
-            // Inference
             const outs = (await this.plateModel.executeAsync(input)) as tf.Tensor[];
             const detTensor = outs[0].squeeze([0]) as tf.Tensor2D;
             const protosNHWC = outs[1].squeeze([0]) as tf.Tensor3D;
@@ -55,10 +53,7 @@ export class DetectionPlateService implements OnModuleInit {
                 return null;
             }
 
-            // Generate mask
             const { maskOrig, quad } = await this.generateMask(bestDetection, protosNHWC, ratio, dw, dh, origH, origW);
-
-            // Crop and encode
             const result = await this.cropAndEncode(imgOrig, maskOrig, origH, origW, quad);
 
             tf.dispose([imgOrig, protosNHWC]);
