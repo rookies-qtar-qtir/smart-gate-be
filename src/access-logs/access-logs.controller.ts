@@ -18,6 +18,8 @@ import { Public } from '../auth/decorators/public.decorator';
 import { OperatorOnly } from '../auth/decorators/operator-only.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { JwtPayload } from '../auth/interfaces/jwt-payload.interface';
+import { timestamp } from 'rxjs';
+import { CursorPaginationDto } from './dto/cursor-pagination.dto';
 
 @Controller('access-logs')
 export class AccessLogsController {
@@ -70,6 +72,18 @@ export class AccessLogsController {
     };
   }
 
+  // @OperatorOnly()
+  // @Get('summary')
+  // async getSummary(@CurrentUser() operator: JwtPayload) {
+  //   const summary = await this.accessLogsService.getAccessSummary();
+  //   return {
+  //     statusCode: HttpStatus.OK,
+  //     message: 'Access logs summary retrieved',
+  //     data: summary,
+  //     accessedBy: operator.email,
+  //   }
+  // }
+
   @OperatorOnly()
   @Get('summary')
   async getSummary(@CurrentUser() operator: JwtPayload) {
@@ -78,21 +92,45 @@ export class AccessLogsController {
       statusCode: HttpStatus.OK,
       message: 'Access logs summary retrieved',
       data: summary,
-      accessedBy: operator.email,
     }
   }
 
+  // @OperatorOnly()
+  // @Get()
+  // async findAll(@CurrentUser() operator: JwtPayload) {
+  //   const accessLogs = await this.accessLogsService.findAll();
+  //   return {
+  //     statusCode: HttpStatus.OK,
+  //     message: 'Access logs retrieved',
+  //     data: accessLogs,
+  //     accessedBy: operator.email,
+  //   };
+  // }
+
   @OperatorOnly()
   @Get()
-  async findAll(@CurrentUser() operator: JwtPayload) {
-    const accessLogs = await this.accessLogsService.findAll();
+  async findAll(@CurrentUser() operator: JwtPayload, @Query('page') page: string = '1') {
+    const pageNumber = parseInt(page) || 1;
+    const result = await this.accessLogsService.findAll(pageNumber);
     return {
       statusCode: HttpStatus.OK,
       message: 'Access logs retrieved',
-      data: accessLogs,
-      accessedBy: operator.email,
+      ...result
     };
   }
+
+  // @OperatorOnly()
+  // @Get()
+  // async findCursorPage(@CurrentUser() operator: JwtPayload, @Query() query: CursorPaginationDto) {
+  //   const accessLogs = await this.accessLogsService.findCursorPage(query);
+  //   return {
+  //     statusCode: HttpStatus.OK,
+  //     message: 'Access logs retrieved',
+  //     data: accessLogs,
+  //     accessedBy: operator.email,
+  //   };
+
+  // }
 
   // test
   @Public()

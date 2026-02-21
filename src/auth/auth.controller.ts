@@ -5,7 +5,8 @@ import {
     HttpCode,
     HttpStatus,
     Get,
-    UseGuards
+    UseGuards,
+    Request
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
@@ -25,6 +26,22 @@ export class AuthController {
             statusCode: HttpStatus.OK,
             message: 'Login successful',
             data: result,
+        };
+    }
+
+    @Get('me')
+    @HttpCode(HttpStatus.OK)
+    getMe(@Request() req) {
+        return {
+            statusCode: HttpStatus.OK,
+            message: 'OK',
+            data: {
+                id: req.user.sub,
+                pid: req.user.pid,
+                email: req.user.email,
+                name: req.user.name,
+                role: req.user.role,
+            },
         };
     }
 

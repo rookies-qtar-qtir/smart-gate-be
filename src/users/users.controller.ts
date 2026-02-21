@@ -1,13 +1,6 @@
 import {
-  Controller,
-  Get,
-  Post,
-  Body,
-  Patch,
-  Param,
-  Delete,
-  HttpStatus,
-  HttpCode,
+  Controller, Get, Post, Body, Patch, Param, Delete,
+  HttpStatus, HttpCode, Query
 } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
@@ -20,7 +13,7 @@ import { DeleteUserDto } from './dto/delete-user.dto';
 @Controller('users')
 @OperatorOnly()
 export class UsersController {
-  constructor(private readonly usersService: UsersService) { }
+  constructor(private readonly usersService: UsersService) {}
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
@@ -35,13 +28,13 @@ export class UsersController {
   }
 
   @Get()
-  async findAll(@CurrentUser() operator: JwtPayload) {
-    const users = await this.usersService.findAll();
+  async findAll(@Query('page') page: string = '1') {
+    const pageNumber = parseInt(page) || 1;
+    const result = await this.usersService.findAll(pageNumber);
     return {
       statusCode: HttpStatus.OK,
       message: 'Users retrieved successfully',
-      data: users,
-      accessedBy: operator.email,
+      ...result,
     };
   }
 
@@ -86,10 +79,10 @@ export class UsersController {
   @HttpCode(HttpStatus.OK)
   async remove(
     @Param('id') id: string,
-    @Body() DeleteUserDto: DeleteUserDto,
+    @Body() deleteUserDto: DeleteUserDto,
     @CurrentUser() operator: JwtPayload
   ) {
-    await this.usersService.remove(id, DeleteUserDto.pin);
+    await this.usersService.remove(id, deleteUserDto.pin);
     return {
       statusCode: HttpStatus.OK,
       message: 'User deleted successfully',

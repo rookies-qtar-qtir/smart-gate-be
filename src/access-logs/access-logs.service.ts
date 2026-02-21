@@ -5,6 +5,7 @@ import { ClassificationService } from 'src/classification/classification.service
 import { DetectionPlateService } from 'src/detection-plate/detection-plate.service';
 import { AccessStatus, VehicleType } from '@prisma/client';
 import { ProcessAccessDto } from './dto/process-access.dto';
+import { CursorPaginationDto } from './dto/cursor-pagination.dto';
 
 export interface ProcessAccessResult {
   access: boolean;
@@ -156,11 +157,66 @@ export class AccessLogsService {
     };
   }
 
-  async findAll() {
-    return this.prisma.accessLog.findMany({
+  // async findAll() {
+  //   return this.prisma.accessLog.findMany({
+  //     include: { user: true },
+  //     orderBy: { timestamp: 'desc' },
+  //   });
+  // }
+
+  private readonly PAGE_SIZE = 10;
+
+  async findAll(page: number = 1) {
+    const skip = (page - 1) * this.PAGE_SIZE;
+
+    const [data, total] = await Promise.all([
+      this.prisma.accessLog.findMany({
+        include: { user: true },
+        orderBy: { timestamp: 'desc' },
+        skip,
+        take: this.PAGE_SIZE,
+      }),
+      this.prisma.accessLog.count(),
+    ]);
+
+    return {
+      data,
+      meta: {
+        total,
+        page,
+        pageSize: this.PAGE_SIZE,
+        totalPages: Math.ceil(total / this.PAGE_SIZE),
+      },
+    };
+  }
+
+  async findCursorPage(query: CursorPaginationDto) {
+    const take = Math.min(Number(query.limit) || 10, 20);
+    const logs = await this.prisma.accessLog.findMany({
+      take: take + 1,
       include: { user: true },
       orderBy: { timestamp: 'desc' },
+
+      ...(query.cursor && {
+        where: {
+          timestamp: {
+            lt: new Date(query.cursor),
+          },
+        },
+      }),
     });
+
+    let nextCursor: string | null = null;
+
+    if (logs.length > take) {
+      logs.pop();
+      nextCursor = logs[logs.length - 1].timestamp.toISOString();
+    }
+
+    return {
+      data: logs,
+      nextCursor,
+    };
   }
 
   // test
