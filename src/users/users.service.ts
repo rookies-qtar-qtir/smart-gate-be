@@ -55,6 +55,23 @@ export class UsersService {
     };
   }
 
+  async findOperator() {
+    const filterCondition = {
+      role: Role.OPERATOR,
+    }
+
+    const data = await Promise.all([
+      this.prisma.user.findMany({
+        where: filterCondition,
+        orderBy: { createdAt: 'desc'},
+      }),
+    ]);
+
+    return {
+      data
+    }
+  }
+
   async findOne(id: string) {
     const user = await this.prisma.user.findUnique({ where: { id } });
     if (!user) throw new NotFoundException(`User with ID ${id} not found`);

@@ -2,7 +2,7 @@ import { Injectable, UnauthorizedException, ConflictException } from '@nestjs/co
 import { JwtService } from '@nestjs/jwt';
 import { PrismaService } from '../prisma/prisma.service';
 import { LoginDto } from './dto/login.dto';
-// import { RegisterAdminDto } from './dto/register-operator.dto';
+import { RegisterAdminDto } from './dto/register-operator.dto';
 import { AuthResponseDto } from './dto/auth-response.dto';
 import { JwtPayload } from './interfaces/jwt-payload.interface';
 import { Role } from '@prisma/client';
@@ -43,12 +43,77 @@ export class AuthService {
             throw new UnauthorizedException('Invalid credentials');
         }
 
+        if (user.tokenVersion >= 1) {
+            throw new UnauthorizedException('This account is currently in use on another device. Please log out from that device first.');
+        }
+
+        const updateUser = await this.prisma.user.update({
+            where: { id: user.id },
+            data: { tokenVersion: 1 },
+        });
+
+        const payload: JwtPayload = {
+            sub: updateUser.id,
+            email: updateUser.email,
+            pid: updateUser.pid,
+            role: updateUser.role,
+            name: updateUser.name,
+            version: updateUser.tokenVersion,
+        };
+
+        const accessToken = this.jwtService.sign(payload);
+
+        return {
+            id: updateUser.id,
+            pid: updateUser.pid,
+            email: updateUser.email,
+            name: updateUser.name,
+            role: updateUser.role,
+            access_token: accessToken,
+        };
+    }
+
+    async registerAdmin(registerAdminDto: RegisterAdminDto): Promise<AuthResponseDto> {
+        const { pid, email, name, password } = registerAdminDto;
+
+        const existingUserByEmail = await this.prisma.user.findUnique({
+            where: { email },
+        });
+
+        if (existingUserByEmail) {
+            throw new ConflictException('Email already exists');
+        }
+
+        const existingUserByPid = await this.prisma.user.findUnique({
+            where: { pid },
+        });
+
+        if (existingUserByPid) {
+            throw new ConflictException('PID already exists');
+        }
+
+        const saltRounds = 10;
+        const hashedPassword = await bcrypt.hash(password, saltRounds);
+
+        const user = await this.prisma.user.create({
+            data: {
+                pid,
+                email,
+                name,
+                password: hashedPassword,
+                role: Role.OPERATOR,
+                isActive: true,
+                tokenVersion: 0,
+            },
+        });
+
         const payload: JwtPayload = {
             sub: user.id,
             email: user.email,
             pid: user.pid,
             role: user.role,
             name: user.name,
+            version: user.tokenVersion,
         };
 
         const accessToken = this.jwtService.sign(payload);
@@ -63,56 +128,12 @@ export class AuthService {
         };
     }
 
-    // async registerAdmin(registerAdminDto: RegisterAdminDto): Promise<AuthResponseDto> {
-    //     const { pid, email, name, password } = registerAdminDto;
+    async logout(userId: string) {
+        await this.prisma.user.update({
+            where: { id: userId },
+            data: { tokenVersion: 0 },
+        });
 
-    //     const existingUserByEmail = await this.prisma.user.findUnique({
-    //         where: { email },
-    //     });
-
-    //     if (existingUserByEmail) {
-    //         throw new ConflictException('Email already exists');
-    //     }
-
-    //     const existingUserByPid = await this.prisma.user.findUnique({
-    //         where: { pid },
-    //     });
-
-    //     if (existingUserByPid) {
-    //         throw new ConflictException('PID already exists');
-    //     }
-
-    //     const saltRounds = 10;
-    //     const hashedPassword = await bcrypt.hash(password, saltRounds);
-
-    //     const user = await this.prisma.user.create({
-    //         data: {
-    //             pid,
-    //             email,
-    //             name,
-    //             password: hashedPassword,
-    //             role: Role.OPERATOR,
-    //             isActive: true,
-    //         },
-    //     });
-
-    //     const payload: JwtPayload = {
-    //         sub: user.id,
-    //         email: user.email,
-    //         pid: user.pid,
-    //         role: user.role,
-    //         name: user.name,
-    //     };
-
-    //     const accessToken = this.jwtService.sign(payload);
-
-    //     return {
-    //         id: user.id,
-    //         pid: user.pid,
-    //         email: user.email,
-    //         name: user.name,
-    //         role: user.role,
-    //         access_token: accessToken,
-    //     };
-    // }
+        return { message: 'Logged out successfully' };
+    }
 }

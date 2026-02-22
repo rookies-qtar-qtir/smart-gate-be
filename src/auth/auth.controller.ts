@@ -5,7 +5,6 @@ import {
     HttpCode,
     HttpStatus,
     Get,
-    UseGuards,
     Request
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
@@ -45,15 +44,25 @@ export class AuthController {
         };
     }
 
-    // @Public()
-    // @Post('register/operator')
-    // @HttpCode(HttpStatus.CREATED)
-    // async registerAdmin(@Body() registerAdminDto: RegisterAdminDto) {
-    //     const result = await this.authService.registerAdmin(registerAdminDto);
-    //     return {
-    //         statusCode: HttpStatus.CREATED,
-    //         message: 'Admin registered successfully',
-    //         data: result,
-    //     };
-    // }
+    @Public()
+    @Post('register/operator')
+    @HttpCode(HttpStatus.CREATED)
+    async registerAdmin(@Body() registerAdminDto: RegisterAdminDto) {
+        const result = await this.authService.registerAdmin(registerAdminDto);
+        return {
+            statusCode: HttpStatus.CREATED,
+            message: 'Admin registered successfully',
+            data: result,
+        };
+    }
+
+    @Post('logout')
+    @HttpCode(HttpStatus.OK)
+    async logout(@Request() req) {
+        const result = await this.authService.logout(req.user.sub);
+        return {
+            statusCode: HttpStatus.OK,
+            message: result.message,
+        };
+    }
 }

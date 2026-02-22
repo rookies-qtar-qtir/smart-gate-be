@@ -39,6 +39,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       pid: user.pid,
       role: user.role,
       name: user.name,
+      version: user.tokenVersion,
     };
   }
 }

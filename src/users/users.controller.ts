@@ -38,6 +38,16 @@ export class UsersController {
     };
   }
 
+  @Get("operator")
+  async findOperator() {
+    const result = await this.usersService.findOperator();
+    return {
+      statusCode: HttpStatus.OK,
+      messagge: 'User retrieved successfully',
+      ...result,
+    }
+  }
+
   @Get(':id')
   async findOne(@Param('id') id: string, @CurrentUser() operator: JwtPayload) {
     const user = await this.usersService.findOne(id);

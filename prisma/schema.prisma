@@ -22,6 +22,7 @@ model User {
   isActive  Boolean  @default(true)
   password  String?
   role      Role     @default(PENGHUNI)
+  tokenVersion Int @default(0)
   plateNumber String[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
