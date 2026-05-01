@@ -42,11 +42,11 @@ export class AuthService {
         if (!isPasswordValid) {
             throw new UnauthorizedException('Invalid credentials');
         }
-
+	/*
         if (user.tokenVersion >= 1) {
             throw new UnauthorizedException('This account is currently in use on another device. Please log out from that device first.');
         }
-
+	*/
         const updateUser = await this.prisma.user.update({
             where: { id: user.id },
             data: { tokenVersion: 1 },
